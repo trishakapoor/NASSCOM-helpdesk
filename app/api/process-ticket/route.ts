@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
     if (groq) {
       const prompt = `You are an internal L1 IT Helpdesk Agent. Your goal is to analyze the user's issue, categorize it into exactly one of these six categories: 'Infrastructure', 'Application', 'Security', 'Database', 'Network', 'Access Management'. 
 Then, using the provided historical issues, formulate a step-by-step markdown resolution.
-Finally, return a confidence_score between 0.00 and 1.00 indicating how certain you are that this resolution will solve their specific issue. If the user's issue is absurd, dangerous, or not matching the RAG context, lower the confidence < 0.85.
+Finally, return a confidence_score between 0.00 and 1.00 indicating how certain you are that this resolution will solve their specific issue. If the user's issue is absurd, dangerous, or not matching the RAG context, lower the confidence < 0.75.
 
 User Issue:
 ${sanitizedText}
@@ -192,7 +192,7 @@ Return EXACTLY a raw JSON object with no markdown wrappers (like \`\`\`json) wit
     const finalCategory = groqResponse?.category || 'Infrastructure';
     const finalResolution = groqResponse?.resolution || 'System requires human escalation.';
     const finalConfidence = fallbackToAdmin ? 0.0 : (groqResponse?.confidenceScore || 0.0);
-    const finalStatus = finalConfidence >= 0.85 ? 'AUTO_RESOLVED' : 'NEEDS_HUMAN';
+    const finalStatus = finalConfidence >= 0.75 ? 'AUTO_RESOLVED' : 'NEEDS_HUMAN';
 
     thoughtProcess.push(`Inference complete! Confidence: ${finalConfidence}. Status: ${finalStatus}`);
 
