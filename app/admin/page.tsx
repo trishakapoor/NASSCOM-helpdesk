@@ -1,7 +1,8 @@
 import { supabase } from "@/lib/supabase";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LayoutDashboard, AlertCircle, CheckCircle2, Zap } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -24,65 +25,101 @@ export default async function AdminDashboard() {
   const automationCandidates = tickets.filter(t => t.status === "NEEDS_HUMAN" && t.confidence_score >= 0.85);
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8 text-slate-100 font-sans">
+    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-8 border-b border-slate-800 pb-4">
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-50">IT Triage Dashboard</h1>
-          <p className="text-slate-400 mt-2">Elite Enterprise Helpdesk View</p>
+        
+        {/* Header */}
+        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-zinc-200">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center">
+              <LayoutDashboard className="w-6 h-6 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">IT Triage Dashboard</h1>
+              <p className="text-slate-500 mt-1 font-medium text-sm">Lightwave Enterprise View</p>
+            </div>
+          </div>
+          
+          <div className="mt-4 md:mt-0 flex space-x-3">
+            <Badge variant="outline" className="bg-white px-3 py-1 text-slate-600 shadow-sm border-zinc-200">
+              Total Processed: {tickets.length}
+            </Badge>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
           {/* NEEDS HUMAN */}
-          <section>
-            <div className="flex items-center space-x-2 mb-4">
-              <h2 className="font-semibold text-lg text-rose-500">Needs Human</h2>
-              <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+          <section className="bg-slate-100/50 p-4 rounded-3xl border border-slate-200/60">
+            <div className="flex items-center justify-between mb-5 px-2">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-rose-500" />
+                <h2 className="font-bold text-slate-800">Needs Human</h2>
+              </div>
+              <Badge className="bg-white text-slate-800 shadow-sm border-zinc-200 px-2 py-0.5">
                 {needsHuman.length}
               </Badge>
             </div>
-            <ScrollArea className="h-[75vh] pe-4">
+            <ScrollArea className="h-[70vh] px-2 pb-6">
               <div className="space-y-4">
                 {needsHuman.map((ticket, i) => (
-                  <TicketCard key={ticket.id || i} ticket={ticket} />
+                  <TicketCard key={ticket.id || i} ticket={ticket} type="danger" />
                 ))}
-                {needsHuman.length === 0 && <p className="text-slate-500 text-sm">No critical tickets.</p>}
+                {needsHuman.length === 0 && (
+                  <div className="bg-white/50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
+                    <p className="text-slate-500 text-sm font-medium">Clear queue. No critical tickets.</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </section>
 
           {/* AUTO RESOLVED */}
-          <section>
-             <div className="flex items-center space-x-2 mb-4">
-              <h2 className="font-semibold text-lg text-emerald-400">Auto-Resolved</h2>
-              <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+          <section className="bg-slate-100/50 p-4 rounded-3xl border border-slate-200/60">
+             <div className="flex items-center justify-between mb-5 px-2">
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                <h2 className="font-bold text-slate-800">Auto-Resolved</h2>
+              </div>
+              <Badge className="bg-white text-slate-800 shadow-sm border-zinc-200 px-2 py-0.5">
                 {autoResolved.length}
               </Badge>
             </div>
-            <ScrollArea className="h-[75vh] pe-4">
+            <ScrollArea className="h-[70vh] px-2 pb-6">
                <div className="space-y-4">
                 {autoResolved.map((ticket, i) => (
-                  <TicketCard key={ticket.id || i} ticket={ticket} />
+                  <TicketCard key={ticket.id || i} ticket={ticket} type="success" />
                 ))}
-                {autoResolved.length === 0 && <p className="text-slate-500 text-sm">No resolved tickets.</p>}
+                {autoResolved.length === 0 && (
+                  <div className="bg-white/50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
+                    <p className="text-slate-500 text-sm font-medium">No resolved tickets yet.</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </section>
 
           {/* AUTOMATION CANDIDATES */}
-          <section>
-             <div className="flex items-center space-x-2 mb-4">
-              <h2 className="font-semibold text-lg text-cyan-500">Automation Candidates</h2>
-              <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+          <section className="bg-slate-100/50 p-4 rounded-3xl border border-slate-200/60">
+             <div className="flex items-center justify-between mb-5 px-2">
+              <div className="flex items-center space-x-2">
+                <Zap className="w-5 h-5 text-blue-500" />
+                <h2 className="font-bold text-slate-800">Automation Candidates</h2>
+              </div>
+              <Badge className="bg-white text-slate-800 shadow-sm border-zinc-200 px-2 py-0.5">
                 {automationCandidates.length}
               </Badge>
             </div>
-            <ScrollArea className="h-[75vh] pe-4">
+            <ScrollArea className="h-[70vh] px-2 pb-6">
                <div className="space-y-4">
                 {automationCandidates.map((ticket, i) => (
-                  <TicketCard key={ticket.id || i} ticket={ticket} />
+                  <TicketCard key={ticket.id || i} ticket={ticket} type="candidate" />
                 ))}
-                {automationCandidates.length === 0 && <p className="text-slate-500 text-sm">No candidates.</p>}
+                {automationCandidates.length === 0 && (
+                   <div className="bg-white/50 border border-dashed border-slate-300 rounded-xl p-8 text-center">
+                     <p className="text-slate-500 text-sm font-medium">No candidates identified.</p>
+                   </div>
+                )}
               </div>
             </ScrollArea>
           </section>
@@ -93,20 +130,28 @@ export default async function AdminDashboard() {
   );
 }
 
-function TicketCard({ ticket }: { ticket: any }) {
-  const isDanger = ticket.status === "NEEDS_HUMAN";
+function TicketCard({ ticket, type }: { ticket: any, type: "danger" | "success" | "candidate" }) {
+  
+  let badgeStyle = "";
+  if (type === "danger") badgeStyle = "bg-rose-50 text-rose-700 border-none group-hover:bg-rose-100 transition-colors";
+  if (type === "success") badgeStyle = "bg-emerald-50 text-emerald-700 border-none group-hover:bg-emerald-100 transition-colors";
+  if (type === "candidate") badgeStyle = "bg-blue-50 text-blue-700 border-none group-hover:bg-blue-100 transition-colors";
+
   return (
-    <Card className="bg-slate-900 border-slate-800 shadow-sm text-slate-200">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <Badge className={isDanger ? "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 shadow-none border-none" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 shadow-none border-none"}>
-          {ticket.category}
+    <Card className="group bg-white border-zinc-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden rounded-2xl">
+      <CardHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between border-b border-slate-50/50 bg-slate-50/30">
+        <Badge className={badgeStyle}>
+          {ticket.category || "Uncategorized"}
         </Badge>
-        <span className="text-xs text-slate-500">
-          Confidence: {ticket.confidence_score?.toFixed(2) || '0.00'}
-        </span>
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Score</span>
+          <span className="text-xs font-mono font-bold text-slate-700">
+            {ticket.confidence_score?.toFixed(2) || '0.00'}
+          </span>
+        </div>
       </CardHeader>
-      <CardContent>
-        <p className="text-sm font-mono text-slate-300 line-clamp-3">
+      <CardContent className="p-5">
+        <p className="text-sm text-slate-600 leading-relaxed line-clamp-4">
           {ticket.original_redacted_text}
         </p>
       </CardContent>

@@ -1,16 +1,17 @@
 # Progress Tracker (DONE.md)
 
 ## What is being done
-- Initializing the Next.js Application and configuring the Enterprise Dark Mode vibe.
+- Build completed. Awaiting user environment configuration.
 
 ## What needs to be done
-- Initialize Next.js app with Tailwind and shadcn/ui.
-- Setup Local Redaction Pipeline and Embeddings (using `@xenova/transformers`).
-- Prepare Database configuration and seed scripts.
-- Implement API routes (`/api/process-ticket`, `/api/admin/tickets`).
-- Implement UI components (Submission Portal and Admin Triage Dashboard).
+- User must configure `.env.local` keys.
+- User must run the Supabase schema in `supabase/schema.sql`.
+- User must run `node scripts/seed_data.mjs` to generate RAG context.
+- Run `npm run dev` to test the application locally.
 
 ## What has been done
-- Project workspace initialized.
-- Tracking files (`SELF.md` and `DONE.md`) created.
-- Analyzed the PRD and TRD and created `implementation_plan.md`.
+- Initialized Next.js, shadcn/ui, and all dependencies.
+- Created Backend Middlewares (`lib/ml.ts`, `lib/supabase.ts`, `lib/groq.ts`).
+- Created Core NLP Agent Pipeline (`/api/process-ticket/route.ts`).
+- Developed Submission Portal (`app/page.tsx`) with real-time Thought Process observability.
+- Developed Admin Kanban Board (`app/admin/page.tsx`).

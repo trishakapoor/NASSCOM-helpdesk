@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     // 2. Local NER Pipeline for PII Redaction
     thoughtProcess.push("Running local zero-trust PII redaction...");
     const ner = await PipelineSingleton.getNER();
-    const entities = await ner(fullText, { aggregation_strategy: "simple" });
+    const entities = await (ner as any)(fullText, { aggregation_strategy: "simple" });
     
     // Sort entities descending by index so string replacement doesn't shift later indices
     let sanitizedText = fullText;
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     // 3. Embedding
     thoughtProcess.push("Generating embeddings locally using bge-small...");
     const embedder = await PipelineSingleton.getEmbedding();
-    const output = await embedder(sanitizedText, { pooling: 'mean', normalize: true });
+    const output = await (embedder as any)(sanitizedText, { pooling: 'mean', normalize: true });
     const embeddingArray = Array.from(output.data);
 
     // 4. RAG / Similarity Search
@@ -107,7 +107,7 @@ Return EXACTLY a raw JSON object with no markdown wrappers (like \`\`\`json) wit
       try {
         const completion = await groq.chat.completions.create({
           messages: [{ role: 'user', content: prompt }],
-          model: 'llama3-70b-8192',
+          model: 'llama-3.3-70b-versatile',
           temperature: 0.1,
           response_format: { type: "json_object" }
         });
