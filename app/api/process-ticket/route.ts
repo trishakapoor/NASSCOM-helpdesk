@@ -55,37 +55,45 @@ export async function POST(req: NextRequest) {
     let sanitizedText = fullText;
     let useLocalEmbeddings = false;
 
-    try {
-      thoughtProcess.push("Loading local NER model (Xenova/bert-base-NER)...");
-      const PipelineSingleton = (await import("@/lib/ml")).default;
-      const ner = await PipelineSingleton.getNER();
-      const entities = await (ner as any)(fullText, { aggregation_strategy: "simple" });
-      
-      const sortedEntities = Array.isArray(entities) ? entities.sort((a: any, b: any) => b.start - a.start) : [];
-      
-      for (const ent of sortedEntities) {
-        const entityType = ent.entity_group === 'PER' ? '[REDACTED_NAME]' :
-                           ent.entity_group === 'LOC' ? '[REDACTED_LOCATION]' :
-                           ent.entity_group === 'ORG' ? '[REDACTED_ORGANIZATION]' : '[REDACTED_ENTITY]';
-        sanitizedText = sanitizedText.slice(0, ent.start) + entityType + sanitizedText.slice(ent.end);
-      }
+    // Only attempt local ML models in development (they need ~600MB RAM)
+    const isProduction = process.env.NODE_ENV === 'production';
 
-      thoughtProcess.push("Running local zero-trust PII redaction... ✓");
-      useLocalEmbeddings = true;
-    } catch (nerErr) {
-      console.warn("Local NER unavailable, falling back to regex redaction:", (nerErr as any)?.message || nerErr);
-      thoughtProcess.push("Local NER unavailable — using regex-based PII scrubbing...");
+    if (!isProduction) {
+      try {
+        thoughtProcess.push("Loading local NER model (Xenova/bert-base-NER)...");
+        const PipelineSingleton = (await import("@/lib/ml")).default;
+        const ner = await PipelineSingleton.getNER();
+        const entities = await (ner as any)(fullText, { aggregation_strategy: "simple" });
+        
+        const sortedEntities = Array.isArray(entities) ? entities.sort((a: any, b: any) => b.start - a.start) : [];
+        
+        for (const ent of sortedEntities) {
+          const entityType = ent.entity_group === 'PER' ? '[REDACTED_NAME]' :
+                             ent.entity_group === 'LOC' ? '[REDACTED_LOCATION]' :
+                             ent.entity_group === 'ORG' ? '[REDACTED_ORGANIZATION]' : '[REDACTED_ENTITY]';
+          sanitizedText = sanitizedText.slice(0, ent.start) + entityType + sanitizedText.slice(ent.end);
+        }
+
+        thoughtProcess.push("Running local zero-trust PII redaction... ✓");
+        useLocalEmbeddings = true;
+      } catch (nerErr) {
+        console.warn("Local NER unavailable, falling back to regex redaction:", (nerErr as any)?.message || nerErr);
+        thoughtProcess.push("Local NER unavailable — using regex-based PII scrubbing...");
+      }
+    } else {
+      thoughtProcess.push("Running regex-based PII redaction pipeline...");
     }
 
-    // Always apply regex redaction as a safety net on top
+    // Always apply regex redaction as a safety net
     sanitizedText = regexRedact(sanitizedText);
+    thoughtProcess.push("PII redaction complete ✓");
 
     // ───────────────────────────────────────────────────────────
     // 3. Embedding — Try local model, fallback to text search
     // ───────────────────────────────────────────────────────────
     let embeddingArray: number[] | null = null;
 
-    if (useLocalEmbeddings) {
+    if (useLocalEmbeddings && !isProduction) {
       try {
         thoughtProcess.push("Generating embeddings locally using bge-small...");
         const PipelineSingleton = (await import("@/lib/ml")).default;
@@ -97,7 +105,7 @@ export async function POST(req: NextRequest) {
         thoughtProcess.push("Local embeddings unavailable — using text-based context retrieval...");
       }
     } else {
-      thoughtProcess.push("Skipping local embeddings (NER unavailable)...");
+      thoughtProcess.push("Using text-based context retrieval...");
     }
 
     // ───────────────────────────────────────────────────────────
