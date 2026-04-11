@@ -28,37 +28,59 @@ export default function SubmissionPortal() {
 
     setThoughtProcess(["Analyzing the submission..."]);
 
-    try {
-      const res = await fetch("/api/process-ticket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawText: issueText, logContent: logText })
-      });
+    const MAX_RETRIES = 2;
+    let lastError: any = null;
 
-      const data = await res.json();
-      
-      if (res.ok) {
-        setThoughtProcess(data.thoughtProcess || []);
-        if (data.status === "SUCCESS") {
-          setTicketStatus("AUTO_RESOLVED");
-          setFinalResolution(data.resolution);
-          setConfidenceScore(data.confidenceScore);
-        } else {
-          setTicketStatus("ESCALATED");
-          setFinalResolution("I've routed this complex issue to the appropriate human engineering team for review. Please check the admin dashboard.");
-          setConfidenceScore(data.confidenceScore);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          setThoughtProcess(prev => [...prev, `Server is waking up... retrying (${attempt}/${MAX_RETRIES})...`]);
+          await new Promise(r => setTimeout(r, 3000));
         }
-      } else {
-        setThoughtProcess(prev => [...prev, "System timeout or API error."]);
-        setTicketStatus("ESCALATED");
-        setFinalResolution("Error connecting to AI system. Routed to human queue.");
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90000);
+
+        const res = await fetch("/api/process-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rawText: issueText, logContent: logText }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+        const data = await res.json();
+        
+        if (res.ok) {
+          setThoughtProcess(data.thoughtProcess || []);
+          if (data.status === "SUCCESS") {
+            setTicketStatus("AUTO_RESOLVED");
+            setFinalResolution(data.resolution);
+            setConfidenceScore(data.confidenceScore);
+          } else {
+            setTicketStatus("ESCALATED");
+            setFinalResolution("I've routed this complex issue to the appropriate human engineering team for review. Please check the admin dashboard.");
+            setConfidenceScore(data.confidenceScore);
+          }
+          setLoading(false);
+          return; // Success — exit the retry loop
+        } else {
+          setThoughtProcess(prev => [...prev, "System timeout or API error."]);
+          setTicketStatus("ESCALATED");
+          setFinalResolution("Error connecting to AI system. Routed to human queue.");
+          setLoading(false);
+          return;
+        }
+      } catch(err) {
+        lastError = err;
+        if (attempt === MAX_RETRIES) {
+          setTicketStatus("ESCALATED");
+          setFinalResolution("The server may still be starting up. Please wait 30 seconds and try again.");
+        }
       }
-    } catch(err) {
-      setTicketStatus("ESCALATED");
-      setFinalResolution("Failed to process ticket due to network error.");
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   }
 
   return (
