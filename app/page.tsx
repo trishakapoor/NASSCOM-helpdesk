@@ -6,7 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Zap, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Loader2, Zap, ShieldAlert, CheckCircle2, FileText, AlertTriangle, BookOpen } from "lucide-react";
+
+interface SourceCitation {
+  id: string;
+  category: string;
+  query: string;
+  similarity: number;
+}
 
 export default function SubmissionPortal() {
   const [issueText, setIssueText] = useState("");
@@ -17,6 +24,10 @@ export default function SubmissionPortal() {
   const [thoughtProcess, setThoughtProcess] = useState<string[]>([]);
   const [finalResolution, setFinalResolution] = useState<string | null>(null);
   const [confidenceScore, setConfidenceScore] = useState<number | null>(null);
+  const [sourceCitations, setSourceCitations] = useState<SourceCitation[]>([]);
+  const [groundingScore, setGroundingScore] = useState<number | null>(null);
+  const [automationSuggestion, setAutomationSuggestion] = useState<string | null>(null);
+  const [category, setCategory] = useState<string | null>(null);
 
   async function submitTicket() {
     if (!issueText.trim()) return;
@@ -25,11 +36,14 @@ export default function SubmissionPortal() {
     setThoughtProcess([]);
     setFinalResolution(null);
     setConfidenceScore(null);
+    setSourceCitations([]);
+    setGroundingScore(null);
+    setAutomationSuggestion(null);
+    setCategory(null);
 
     setThoughtProcess(["Analyzing the submission..."]);
 
     const MAX_RETRIES = 2;
-    let lastError: any = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
@@ -53,6 +67,11 @@ export default function SubmissionPortal() {
         
         if (res.ok) {
           setThoughtProcess(data.thoughtProcess || []);
+          setSourceCitations(data.sourceCitations || []);
+          setGroundingScore(data.groundingScore ?? null);
+          setAutomationSuggestion(data.automationSuggestion ?? null);
+          setCategory(data.category ?? null);
+
           if (data.status === "SUCCESS") {
             setTicketStatus("AUTO_RESOLVED");
             setFinalResolution(data.resolution);
@@ -63,7 +82,7 @@ export default function SubmissionPortal() {
             setConfidenceScore(data.confidenceScore);
           }
           setLoading(false);
-          return; // Success — exit the retry loop
+          return;
         } else {
           setThoughtProcess(prev => [...prev, "System timeout or API error."]);
           setTicketStatus("ESCALATED");
@@ -72,7 +91,6 @@ export default function SubmissionPortal() {
           return;
         }
       } catch(err) {
-        lastError = err;
         if (attempt === MAX_RETRIES) {
           setTicketStatus("ESCALATED");
           setFinalResolution("The server may still be starting up. Please wait 30 seconds and try again.");
@@ -87,19 +105,19 @@ export default function SubmissionPortal() {
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 sm:p-8 selection:bg-indigo-100 selection:text-indigo-900">
       
       {/* Header */}
-      <header className="max-w-4xl mx-auto mb-10 flex items-center justify-between">
+      <header className="max-w-5xl mx-auto mb-10 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-400 flex items-center justify-center shadow-lg shadow-indigo-200">
             <Zap className="text-white w-5 h-5" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-800">IT Helpdesk AI</h1>
-            <p className="text-sm font-medium text-slate-500">Zero-Trust L1 Agent Pipeline</p>
+            <p className="text-sm font-medium text-slate-500">ReAct Agentic Pipeline · Zero-Trust</p>
           </div>
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* LEFT COMPONENT: Submission Form */}
         <motion.section 
@@ -115,6 +133,7 @@ export default function SubmissionPortal() {
               
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Issue Description</label>
               <textarea
+                id="issue-input"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all resize-none h-28 placeholder:text-slate-400"
                 placeholder="E.g. The production DB is locking up, my IP is 192.168.1.5..."
                 value={issueText}
@@ -125,6 +144,7 @@ export default function SubmissionPortal() {
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">System Logs (Optional)</label>
               <textarea
+                id="log-input"
                 className="w-full bg-slate-50 border border-slate-200 border-dashed rounded-xl p-4 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-slate-200 focus:bg-white transition-all resize-none h-24 placeholder:text-slate-400"
                 placeholder="Paste stack traces or raw logs here..."
                 value={logText}
@@ -133,6 +153,7 @@ export default function SubmissionPortal() {
             </div>
 
             <Button 
+              id="submit-btn"
               onClick={submitTicket} 
               disabled={loading || !issueText.trim()}
               className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 text-white font-semibold transition-all shadow-md shadow-indigo-200"
@@ -161,17 +182,24 @@ export default function SubmissionPortal() {
                   <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                   <h2 className="font-semibold text-slate-700 text-sm">Observability Stream</h2>
                 </div>
-                {ticketStatus && (
-                  <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                    <Badge className={`px-2.5 py-0.5 rounded-full text-xs font-medium border-0 ${
-                      ticketStatus === 'AUTO_RESOLVED' 
-                        ? 'bg-emerald-100 text-emerald-700' 
-                        : 'bg-rose-100 text-rose-700'
-                    }`}>
-                      {ticketStatus.replace("_", " ")}
+                <div className="flex items-center space-x-2">
+                  {category && (
+                    <Badge className="px-2 py-0.5 rounded-full text-xs font-medium border-0 bg-indigo-50 text-indigo-700">
+                      {category}
                     </Badge>
-                  </motion.div>
-                )}
+                  )}
+                  {ticketStatus && (
+                    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                      <Badge className={`px-2.5 py-0.5 rounded-full text-xs font-medium border-0 ${
+                        ticketStatus === 'AUTO_RESOLVED' 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-rose-100 text-rose-700'
+                      }`}>
+                        {ticketStatus.replace("_", " ")}
+                      </Badge>
+                    </motion.div>
+                  )}
+                </div>
               </div>
               
               <ScrollArea className="flex-1 bg-slate-50/30 p-5 font-mono text-xs text-slate-600">
@@ -201,35 +229,78 @@ export default function SubmissionPortal() {
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`mt-auto p-5 border-t border-slate-100 ${
+                    className={`mt-auto border-t border-slate-100 ${
                       ticketStatus === 'AUTO_RESOLVED' ? 'bg-emerald-50/50' : 'bg-rose-50/50'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        {ticketStatus === 'AUTO_RESOLVED' ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        ) : (
-                          <ShieldAlert className="w-4 h-4 text-rose-500" />
-                        )}
-                        <h3 className={`text-sm font-bold ${
-                          ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-800' : 'text-rose-800'
-                        }`}>Final Resolution</h3>
+                    {/* Resolution Header */}
+                    <div className="p-5 pb-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          {ticketStatus === 'AUTO_RESOLVED' ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          ) : (
+                            <ShieldAlert className="w-4 h-4 text-rose-500" />
+                          )}
+                          <h3 className={`text-sm font-bold ${
+                            ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-800' : 'text-rose-800'
+                          }`}>Final Resolution</h3>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          {groundingScore !== null && (
+                            <div className="bg-white px-2 py-1 rounded shadow-sm border border-slate-100 flex items-center space-x-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Ground</span>
+                              <span className="text-xs font-mono font-semibold text-slate-700">{groundingScore.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {confidenceScore !== null && (
+                            <div className="bg-white px-2 py-1 rounded shadow-sm border border-slate-100 flex items-center space-x-1">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Score</span>
+                              <span className="text-xs font-mono font-semibold text-slate-700">{confidenceScore.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       
-                      {confidenceScore !== null && (
-                         <div className="bg-white px-2 py-1 rounded shadow-sm border border-slate-100 flex items-center space-x-1">
-                           <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Score</span>
-                           <span className="text-xs font-mono font-semibold text-slate-700">{confidenceScore.toFixed(2)}</span>
-                         </div>
-                      )}
+                      <p className={`text-sm leading-relaxed ${
+                        ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-900/80' : 'text-rose-900/80'
+                      }`}>
+                        {finalResolution}
+                      </p>
                     </div>
-                    
-                    <p className={`text-sm leading-relaxed ${
-                      ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-900/80' : 'text-rose-900/80'
-                    }`}>
-                      {finalResolution}
-                    </p>
+
+                    {/* Automation Suggestion */}
+                    {automationSuggestion && (
+                      <div className="mx-5 mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-800">{automationSuggestion}</p>
+                      </div>
+                    )}
+
+                    {/* Source Citations */}
+                    {sourceCitations.length > 0 && (
+                      <div className="px-5 pb-4 border-t border-slate-100/50 pt-3">
+                        <div className="flex items-center space-x-1 mb-2">
+                          <BookOpen className="w-3 h-3 text-slate-400" />
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Source Citations</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {sourceCitations.slice(0, 3).map((cite, i) => (
+                            <div key={i} className="bg-white/70 rounded-lg px-3 py-2 flex items-center justify-between border border-slate-100">
+                              <div className="flex items-center space-x-2 min-w-0">
+                                <FileText className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                                <span className="text-[11px] text-slate-600 truncate">{cite.query}</span>
+                              </div>
+                              <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                                <Badge className="text-[9px] px-1.5 py-0 border-0 bg-slate-100 text-slate-500">{cite.category}</Badge>
+                                <span className="text-[10px] font-mono text-slate-400">{(cite.similarity * 100).toFixed(0)}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

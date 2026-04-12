@@ -11,7 +11,8 @@ CREATE TABLE historical_tickets (
   category text NOT NULL,
   sanitized_query text NOT NULL,
   resolution_steps text NOT NULL,
-  embedding vector(384) NOT NULL
+  embedding vector(384) NOT NULL,
+  priority text
 );
 
 -- Table for Triage Dashboard
@@ -21,7 +22,8 @@ CREATE TABLE live_tickets (
   status text NOT NULL CHECK (status IN ('AUTO_RESOLVED', 'NEEDS_HUMAN')),
   category text NOT NULL,
   original_redacted_text text NOT NULL,
-  confidence_score float8 NOT NULL CHECK (confidence_score >= 0.0 AND confidence_score <= 1.0)
+  confidence_score float8 NOT NULL CHECK (confidence_score >= 0.0 AND confidence_score <= 1.0),
+  priority text
 );
 
 -- Vector Search Function

@@ -140,9 +140,16 @@ function TicketCard({ ticket, type }: { ticket: any, type: "danger" | "success" 
   return (
     <Card className="group bg-white border-zinc-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden rounded-2xl">
       <CardHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between border-b border-slate-50/50 bg-slate-50/30">
-        <Badge className={badgeStyle}>
-          {ticket.category || "Uncategorized"}
-        </Badge>
+        <div className="flex space-x-2">
+          <Badge className={badgeStyle}>
+            {ticket.category || "Uncategorized"}
+          </Badge>
+          {ticket.priority && (
+            <Badge variant="outline" className="text-[10px] uppercase border-slate-200">
+              {ticket.priority}
+            </Badge>
+          )}
+        </div>
         <div className="flex flex-col items-end">
           <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Score</span>
           <span className="text-xs font-mono font-bold text-slate-700">
