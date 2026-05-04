@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Zap, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Loader2, Zap, ShieldAlert, CheckCircle2, Terminal, Network } from "lucide-react";
 
 export default function SubmissionPortal() {
   const [issueText, setIssueText] = useState("");
@@ -27,7 +26,7 @@ export default function SubmissionPortal() {
     setFinalResolution(null);
     setConfidenceScore(null);
 
-    setThoughtProcess(["Analyzing the submission..."]);
+    setThoughtProcess(["System initialized. Opening secure pipeline..."]);
 
     const MAX_RETRIES = 2;
     let lastError: any = null;
@@ -35,7 +34,7 @@ export default function SubmissionPortal() {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         if (attempt > 0) {
-          setThoughtProcess(prev => [...prev, `Server is waking up... retrying (${attempt}/${MAX_RETRIES})...`]);
+          setThoughtProcess(prev => [...prev, `Re-establishing secure connection... (${attempt}/${MAX_RETRIES})`]);
           await new Promise(r => setTimeout(r, 3000));
         }
 
@@ -60,15 +59,15 @@ export default function SubmissionPortal() {
             setConfidenceScore(data.confidenceScore);
           } else {
             setTicketStatus("ESCALATED");
-            setFinalResolution("I've routed this complex issue to the appropriate human engineering team for review. Please check the admin dashboard.");
+            setFinalResolution("Complexity exceeds safe autonomous limits. Priority routed to human L2 engineering team.");
             setConfidenceScore(data.confidenceScore);
           }
           setLoading(false);
-          return; // Success — exit the retry loop
+          return;
         } else {
-          setThoughtProcess(prev => [...prev, "System timeout or API error."]);
+          setThoughtProcess(prev => [...prev, "Connection severed. Packet loss detected."]);
           setTicketStatus("ESCALATED");
-          setFinalResolution("Error connecting to AI system. Routed to human queue.");
+          setFinalResolution("Error connecting to neural cluster. Routed to human queue.");
           setLoading(false);
           return;
         }
@@ -76,7 +75,7 @@ export default function SubmissionPortal() {
         lastError = err;
         if (attempt === MAX_RETRIES) {
           setTicketStatus("ESCALATED");
-          setFinalResolution("The server may still be starting up. Please wait 30 seconds and try again.");
+          setFinalResolution("Neural cluster unresponsive. Forced routing to human queue.");
         }
       }
     }
@@ -85,106 +84,140 @@ export default function SubmissionPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 sm:p-8 selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen bg-[#030303] text-slate-200 font-sans p-4 sm:p-8 selection:bg-cyan-500/30 selection:text-cyan-100 overflow-x-hidden relative">
       
-      {/* Header */}
-      <header className="max-w-4xl mx-auto mb-10 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-blue-400 flex items-center justify-center shadow-lg shadow-indigo-200">
-            <Zap className="text-white w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800">IT Helpdesk AI</h1>
-            <p className="text-sm font-medium text-slate-500">Zero-Trust L1 Agent Pipeline</p>
-          </div>
-        </div>
+      {/* Background Ambient Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '8s' }} />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDuration: '10s', animationDelay: '2s' }} />
 
-        {/* Air-Gapped Toggle Switch */}
-        <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200">
-          <span className={`text-xs font-bold uppercase tracking-wider ${!isAirGapped ? 'text-indigo-600' : 'text-slate-400'}`}>Cloud Connected</span>
-          
-          <button 
-            onClick={() => setIsAirGapped(!isAirGapped)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isAirGapped ? 'bg-rose-500' : 'bg-indigo-500'}`}
-          >
-            <span className="sr-only">Toggle Air-Gapped Mode</span>
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAirGapped ? 'translate-x-6' : 'translate-x-1'}`}
-            />
-          </button>
-          
-          <span className={`text-xs font-bold uppercase tracking-wider ${isAirGapped ? 'text-rose-600' : 'text-slate-400'}`}>Air-Gapped / Offline</span>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="max-w-5xl mx-auto relative z-10">
         
-        {/* LEFT COMPONENT: Submission Form */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="space-y-6"
-        >
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+        {/* Header */}
+        <header className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex items-center space-x-4"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center shadow-[0_0_30px_-5px_rgba(6,182,212,0.5)] border border-white/10">
+              <Network className="text-white w-6 h-6" />
+            </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-800 mb-1">Submit Issue</h2>
-              <p className="text-sm text-slate-500 mb-4">Describe the problem naturally. Identifying details are automatically scrubbed locally.</p>
-              
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Issue Description</label>
-              <textarea
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all resize-none h-28 placeholder:text-slate-400"
-                placeholder="E.g. The production DB is locking up, my IP is 192.168.1.5..."
-                value={issueText}
-                onChange={e => setIssueText(e.target.value)}
-              />
+              <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                Agentic Helpdesk <span className="px-2 py-0.5 rounded-md bg-white/10 text-[10px] uppercase tracking-widest text-cyan-400 font-mono border border-cyan-500/20">v2.0</span>
+              </h1>
+              <p className="text-sm font-medium text-slate-400 tracking-wide mt-1">Zero-Trust Enterprise Triage</p>
+            </div>
+          </motion.div>
+
+          {/* Air-Gapped Toggle Switch */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="flex items-center space-x-4 bg-white/[0.03] backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/5 shadow-xl"
+          >
+            <div className="flex flex-col items-end mr-2">
+              <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${!isAirGapped ? 'text-cyan-400' : 'text-slate-600'}`}>Cloud Sync</span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors mt-1 ${isAirGapped ? 'text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.5)]' : 'text-slate-600'}`}>Air-Gapped</span>
             </div>
             
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">System Logs (Optional)</label>
-              <textarea
-                className="w-full bg-slate-50 border border-slate-200 border-dashed rounded-xl p-4 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-slate-200 focus:bg-white transition-all resize-none h-24 placeholder:text-slate-400"
-                placeholder="Paste stack traces or raw logs here..."
-                value={logText}
-                onChange={e => setLogText(e.target.value)}
-              />
-            </div>
-
-            <Button 
-              onClick={submitTicket} 
-              disabled={loading || !issueText.trim()}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 text-white font-semibold transition-all shadow-md shadow-indigo-200"
+            <button 
+              onClick={() => setIsAirGapped(!isAirGapped)}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all focus:outline-none ${isAirGapped ? 'bg-rose-500/20 border border-rose-500/50 shadow-[0_0_15px_rgba(251,113,133,0.2)]' : 'bg-cyan-500/20 border border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.2)]'}`}
             >
-              {loading ? (
-                <span className="flex items-center space-x-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Processing Pipeline...</span>
-                </span>
-              ) : "Initialize Resolution"}
-            </Button>
-          </div>
-        </motion.section>
+              <span className="sr-only">Toggle Security Mode</span>
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full transition-all duration-300 shadow-md ${isAirGapped ? 'translate-x-7 bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.8)]' : 'translate-x-1 bg-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.8)]'}`}
+              />
+            </button>
+          </motion.div>
+        </header>
 
-        {/* RIGHT COMPONENT: AI Observability UI */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-        >
-          <Card className="h-full bg-white border-slate-200 shadow-sm flex flex-col rounded-2xl overflow-hidden">
-            <CardContent className="p-0 flex-1 flex flex-col h-full relative">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* LEFT COMPONENT: Submission Form */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-5 flex flex-col space-y-6"
+          >
+            <div className="bg-white/[0.02] backdrop-blur-2xl p-7 rounded-[2rem] border border-white/5 shadow-2xl relative overflow-hidden group">
               
-              <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                  <h2 className="font-semibold text-slate-700 text-sm">Observability Stream</h2>
+              {/* Subtle hover gradient inside card */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+              <div className="relative z-10 space-y-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-white mb-1 flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-indigo-400" /> Secure Input
+                  </h2>
+                  <p className="text-xs text-slate-500 mb-6 font-mono tracking-tight">PII IS AUTOMATICALLY SCRUBBED VIA WASM NER.</p>
+                  
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3 ml-1">Issue Description</label>
+                  <textarea
+                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all resize-none h-32 placeholder:text-slate-700 shadow-inner custom-scrollbar"
+                    placeholder="E.g. The production DB is locking up, my IP is 192.168.1.5..."
+                    value={issueText}
+                    onChange={e => setIssueText(e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-3 ml-1 flex items-center justify-between">
+                    <span>System Logs</span>
+                    <span className="text-slate-600 border border-white/10 px-2 py-0.5 rounded-full text-[8px]">OPTIONAL</span>
+                  </label>
+                  <textarea
+                    className="w-full bg-black/40 border border-white/10 border-dashed rounded-2xl p-4 font-mono text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all resize-none h-24 placeholder:text-slate-700 shadow-inner custom-scrollbar"
+                    placeholder="Paste stack traces or raw logs here..."
+                    value={logText}
+                    onChange={e => setLogText(e.target.value)}
+                  />
+                </div>
+
+                <Button 
+                  onClick={submitTicket} 
+                  disabled={loading || !issueText.trim()}
+                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold tracking-wide transition-all duration-300 shadow-[0_0_20px_-5px_rgba(6,182,212,0.4)] hover:shadow-[0_0_30px_-5px_rgba(6,182,212,0.6)] disabled:opacity-50 disabled:cursor-not-allowed border border-white/10 group overflow-hidden relative"
+                >
+                  <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                  {loading ? (
+                    <span className="flex items-center space-x-3 text-sm">
+                      <Loader2 className="w-5 h-5 animate-spin text-cyan-200" />
+                      <span className="font-mono uppercase tracking-widest text-cyan-100">Processing...</span>
+                    </span>
+                  ) : (
+                    <span className="uppercase tracking-widest text-sm text-cyan-50">Engage Pipeline</span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* RIGHT COMPONENT: AI Observability UI */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="lg:col-span-7 flex flex-col h-[600px]"
+          >
+            <div className="h-full bg-[#09090b] border border-white/10 shadow-2xl shadow-black/50 flex flex-col rounded-[2rem] overflow-hidden relative">
+              
+              {/* Terminal Header */}
+              <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01] flex items-center justify-between backdrop-blur-md z-20">
+                <div className="flex items-center space-x-3">
+                  <Terminal className="w-4 h-4 text-cyan-500 opacity-80" />
+                  <h2 className="font-mono text-slate-300 text-xs uppercase tracking-widest font-bold">Neural Core Telemetry</h2>
                 </div>
                 {ticketStatus && (
                   <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                    <Badge className={`px-2.5 py-0.5 rounded-full text-xs font-medium border-0 ${
+                    <Badge className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold border-0 shadow-lg ${
                       ticketStatus === 'AUTO_RESOLVED' 
-                        ? 'bg-emerald-100 text-emerald-700' 
-                        : 'bg-rose-100 text-rose-700'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-emerald-500/20' 
+                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-rose-500/20'
                     }`}>
                       {ticketStatus.replace("_", " ")}
                     </Badge>
@@ -192,71 +225,104 @@ export default function SubmissionPortal() {
                 )}
               </div>
               
-              <ScrollArea className="flex-1 bg-slate-50/30 p-5 font-mono text-xs text-slate-600">
+              {/* Terminal Output */}
+              <ScrollArea className="flex-1 bg-transparent p-6 font-mono text-[13px] text-slate-400 custom-scrollbar relative z-10">
                 <AnimatePresence>
                   {thoughtProcess.length === 0 && !loading && (
-                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-slate-400 italic">
-                      Waiting for input stream...
-                    </motion.p>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-slate-600 flex items-center space-x-2">
+                      <span className="w-2 h-4 bg-cyan-500/50 animate-pulse block" />
+                      <span>Awaiting telemetry stream...</span>
+                    </motion.div>
                   )}
                   {thoughtProcess.map((step, i) => (
                     <motion.div 
                       key={i} 
-                      initial={{ opacity: 0, x: -5 }}
+                      initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="mb-3 flex items-start"
+                      transition={{ duration: 0.3 }}
+                      className="mb-4 flex items-start group"
                     >
-                      <span className="text-indigo-400 mr-2 mt-0.5">&gt;</span> 
-                      <span className="leading-relaxed">{step}</span>
+                      <span className="text-cyan-500 mr-3 mt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">$&gt;</span> 
+                      <span className={`leading-relaxed ${step.includes('✅') ? 'text-emerald-400' : step.includes('⚠') || step.includes('Error') ? 'text-rose-400' : step.includes('⚡') ? 'text-amber-400' : 'text-slate-300'}`}>
+                        {step}
+                      </span>
                     </motion.div>
                   ))}
+                  {loading && thoughtProcess.length > 0 && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 flex items-center space-x-2 text-cyan-500">
+                       <span className="w-2 h-4 bg-cyan-500 animate-pulse block" />
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </ScrollArea>
 
+              {/* Resolution Panel */}
               <AnimatePresence>
                 {finalResolution && (
                   <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: "100%" }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`mt-auto p-5 border-t border-slate-100 ${
-                      ticketStatus === 'AUTO_RESOLVED' ? 'bg-emerald-50/50' : 'bg-rose-50/50'
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className={`p-6 border-t backdrop-blur-2xl relative z-20 ${
+                      ticketStatus === 'AUTO_RESOLVED' 
+                        ? 'bg-emerald-950/40 border-emerald-500/20' 
+                        : 'bg-rose-950/40 border-rose-500/20'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
                         {ticketStatus === 'AUTO_RESOLVED' ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          </div>
                         ) : (
-                          <ShieldAlert className="w-4 h-4 text-rose-500" />
+                          <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
+                            <ShieldAlert className="w-4 h-4 text-rose-400" />
+                          </div>
                         )}
-                        <h3 className={`text-sm font-bold ${
-                          ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-800' : 'text-rose-800'
-                        }`}>Final Resolution</h3>
+                        <h3 className={`text-sm uppercase tracking-widest font-bold ${
+                          ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-400' : 'text-rose-400'
+                        }`}>Diagnostic Result</h3>
                       </div>
                       
                       {confidenceScore !== null && (
-                         <div className="bg-white px-2 py-1 rounded shadow-sm border border-slate-100 flex items-center space-x-1">
-                           <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Score</span>
-                           <span className="text-xs font-mono font-semibold text-slate-700">{confidenceScore.toFixed(2)}</span>
+                         <div className="bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 flex items-center space-x-2">
+                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-[0.2em]">Conf</span>
+                           <span className={`text-xs font-mono font-bold ${confidenceScore >= 0.8 ? 'text-emerald-400' : confidenceScore >= 0.5 ? 'text-amber-400' : 'text-rose-400'}`}>
+                             {(confidenceScore * 100).toFixed(1)}%
+                           </span>
                          </div>
                       )}
                     </div>
                     
-                    <p className={`text-sm leading-relaxed ${
-                      ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-900/80' : 'text-rose-900/80'
+                    <div className={`text-sm leading-relaxed max-h-[150px] overflow-y-auto custom-scrollbar pr-2 font-mono ${
+                      ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-100/90' : 'text-rose-100/90'
                     }`}>
-                      {finalResolution}
-                    </p>
+                      {/* Very simple markdown rendering (just splitting newlines) for the demo */}
+                      {finalResolution.split('\n').map((line, i) => (
+                        <p key={i} className="mb-2">{line}</p>
+                      ))}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-            </CardContent>
-          </Card>
-        </motion.section>
+            </div>
+          </motion.section>
 
+        </div>
       </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
+      `}} />
     </div>
   );
 }
