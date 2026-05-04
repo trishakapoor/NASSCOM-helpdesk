@@ -4,6 +4,7 @@ import { pipeline, env } from '@xenova/transformers';
 // and to allow remote fetching on first initialization.
 env.allowLocalModels = true;
 env.useBrowserCache = false; 
+env.cacheDir = '/tmp';
 
 class PipelineSingleton {
   static nerTask = 'token-classification';
