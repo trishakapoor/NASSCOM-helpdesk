@@ -1,35 +1,40 @@
-# Project Description: Agentic Enterprise IT Helpdesk (Zero-Trust L1 Agent)
+# Project Architecture & Design Documentation
 
 ## 1. Detailed Proposed Solution Architecture & Components
-Our solution is a **Zero-Trust Agentic IT Helpdesk** designed to automate 80% of L1 support tickets while mathematically guaranteeing data privacy and gracefully handling offline environments. 
+This project implements a **Zero-Trust Agentic IT Helpdesk**, engineered to automate Level-1 (L1) support triage while adhering to strict enterprise data privacy protocols and offline availability requirements.
 
-The architecture is uniquely separated into three layers:
-1. **The Edge Compute Layer (Client/API):** Built on Next.js 14. This layer intercepts raw user input (via web or Discord) and instantly runs an embedded WebAssembly pipeline (Xenova Transformers). Before data ever leaves the server, it performs **Local Named Entity Recognition (NER)** to scrub PII (Names, IPs, SSNs) and generates 384-dimensional text embeddings locally using `BAAI/bge-small-en-v1.5`.
-2. **The "Air-Gapped" Intelligence Layer:** A custom-trained **Logistic Regression Classifier (C=100.0, Softmax)** runs completely natively in the Node.js backend using raw matrix multiplication. If the confidence score is `< 50%`, the system automatically bypasses the LLM and routes to human engineers, preventing AI hallucinations.
-3. **The Autonomous Data & Synthesis Layer:** Embeddings are cross-referenced using Cosine Similarity against a `pgvector` enabled **Supabase PostgreSQL** database. The closest `#1` historical resolution is either served deterministically (in offline/air-gapped mode) or dynamically synthesized by **Groq (Llama-3.3-70b)** (in cloud-connected mode) under strict anti-hallucination guardrails.
+The architecture is divided into three distinct operational layers:
+
+1. **The Edge Compute Layer (Client/API):**
+   Built on Next.js 14, this layer intercepts raw user input from the frontend or third-party integrations (e.g., Discord). Prior to any external API transmission, the system executes embedded WebAssembly (WASM) models via `Xenova/transformers.js`. It performs Local Named Entity Recognition (NER) using `bert-base-NER` to detect and scrub Personally Identifiable Information (PII) such as IP addresses, names, and credentials. Following redaction, it generates a 384-dimensional text embedding locally using the `bge-small-en-v1.5` model.
+   
+2. **The Intelligence Routing Layer:**
+   A custom-trained Logistic Regression Classifier (optimized with C=100.0 for sharper probability distributions) evaluates the local vector embeddings. This inference is performed natively within the Node.js backend using direct matrix multiplication, eliminating the need for an external Python inference server. If the classifier's confidence score falls below a calibrated threshold (`< 50%`), the system halts autonomous resolution and routes the ticket to a human engineering queue, strictly preventing LLM hallucinations.
+
+3. **The Autonomous Synthesis Layer:**
+   When confidence requirements are met, the vector embedding is queried against a `pgvector` enabled Supabase PostgreSQL database using Cosine Similarity (`<=>`). 
+   - **Cloud Mode:** The system retrieves the top 3 historical matching contexts and prompts a Large Language Model (`Groq llama-3.3-70b-versatile`) to synthesize a natural language runbook strictly constrained to the retrieved context.
+   - **Air-Gapped Mode:** In the event of network isolation or API failure, the system falls back to a deterministic protocol, returning the exact `#1` historical resolution text mapped in the vector space, ensuring zero downtime.
 
 ## 2. Low Level Design (LLD)
-### Component Interaction:
-- `POST /api/process-ticket`: The monolithic orchestrator.
-  - **Step 1:** Upstash Redis sliding window rate-limiting.
-  - **Step 2:** `Xenova/bert-base-NER` detects entities; fallback regex masks IP/Emails.
-  - **Step 3:** `bge-small` creates a 384d `embeddingArray`.
-  - **Step 4:** `match_historical_tickets` Supabase RPC executes `<=>` cosine distance vector search.
-  - **Step 5:** `lr_model.json` matrices are multiplied against the embedding to yield a Softmax probability (Confidence).
-  - **Step 6:** If Confidence `>= 0.50`, Llama 3 synthesizes a response constrained *only* to the retrieved RAG context.
-  - **Step 7 (Agentic Trigger):** The `count_similar_live_tickets_vector` RPC checks if `count >= 3` in 72 hours. If true, the system halts and automatically drafts a `master_incidents` mass-communication outage runbook.
+### Core API Orchestration (`POST /api/process-ticket`)
+- **Step 1:** Request validation and Upstash Redis sliding-window rate limiting.
+- **Step 2:** PII Scrubbing. The payload is processed by the local WASM NER model. If WASM execution fails, it gracefully falls back to Regex-based pattern matching.
+- **Step 3:** Vectorization. The sanitized string is embedded into a `[384]` float array.
+- **Step 4:** Database Query. The Next.js API calls the `match_historical_tickets` RPC on Supabase.
+- **Step 5:** Inference. The embedding array is multiplied against the `lr_model.json` coefficient matrix. A Softmax function yields the final category and confidence score.
+- **Step 6:** LLM Synthesis. If Confidence `>= 0.50` and the system is cloud-connected, the LLM generates a JSON-structured runbook.
+- **Step 7:** Anomaly Detection. The system invokes the `count_similar_live_tickets_vector` RPC. If `count >= 3` within the past 72 hours, an autonomous Agentic routine drafts a Master Incident Outage Report and suspends standard L1 responses.
 
-## 3. Various Data Sources & Data Engineering Steps
+## 3. Data Sources & Data Engineering Steps
 **Primary Data Source:** 
-We engineered a proprietary synthetic dataset containing **1,304 unique enterprise IT support tickets**. 
-- 1,000 tickets represent complex, highly technical infrastructure issues (e.g., PostgreSQL deadlocks, Docker CrashLoops).
-- 304 tickets represent simple, mundane requests (e.g., forgotten passwords, printer jams) generated via LLM prompt engineering.
+The system relies on a proprietary synthetic dataset comprising **1,304 unique enterprise IT support tickets**. This dataset includes highly technical infrastructure issues (e.g., BGP route failures, Docker CrashLoops) as well as generalized, non-technical issues (e.g., password resets).
 
 **Data Engineering Pipeline:**
-1. **Generation:** `llama-3.3-70b` generates high-variance JSON tickets.
-2. **Sanitization:** Scripts parse JSON to CSV, escaping characters to prevent pandas tokenization errors.
-3. **Embedding Extraction:** A Python script uses SentenceTransformers to convert textual combinations (`title + description`) into normalized vectors.
-4. **Vector Database Seeding:** A Node.js pipeline chunks the 1,304 rows and inserts them directly into Supabase via the `@supabase/supabase-js` client, persisting the vectors for production RAG retrieval.
+1. **Data Generation:** Parameterized zero-shot prompting using `llama-3.3-70b` generates high-variance JSON arrays of hypothetical IT issues.
+2. **Data Cleaning:** Scripts parse the JSON into strict CSV formats, implementing custom escaping algorithms to prevent pandas tokenization errors caused by embedded newlines in resolution runbooks.
+3. **Feature Extraction:** A Python-based pipeline utilizes `SentenceTransformers` to convert the concatenated `title + description` of each ticket into normalized float arrays.
+4. **Vector Database Seeding:** A Node.js migration script chunks the 1,304 rows and executes batch inserts directly into the Supabase `historical_tickets` table via the `@supabase/supabase-js` client.
 
 ## 4. Data Model (Entity Relationship Diagram)
 ```mermaid
@@ -66,14 +71,14 @@ erDiagram
 ## 5. Data Flow Diagram (DFD)
 ```mermaid
 graph TD
-    A[User Interface / Discord] -->|Raw Text & Logs| B(Next.js Endpoint)
+    A[User Interface / Integration] -->|Raw Text & Logs| B(Next.js API Route)
     B --> C[WASM NER Model]
     C -->|Sanitized Text| D[BGE-Small Embedder]
     D -->|384d Vector Array| E{Supabase pgvector}
     E -->|Cosine Similarity Match| F[RAG Context Construction]
     D -->|384d Vector Array| G[Logistic Regression Weights]
     G -->|Probability Softmax| H{Confidence > 50%?}
-    H -- Yes --> I[Groq Llama-3 Synthesis]
+    H -- Yes --> I[LLM Synthesis]
     H -- No --> J[Human Escalation Queue]
     I -->|JSON Response| K[Save to LIVE_TICKETS]
     J --> K
@@ -83,28 +88,28 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant U as End User
-    participant API as Next.js API
-    participant ML as Local ML Pipeline
+    participant API as Backend Orchestrator
+    participant ML as Local WASM Pipeline
     participant DB as Supabase (pgvector)
-    participant LLM as Groq API
+    participant LLM as External LLM API
     
-    U->>API: Submit Support Ticket
+    U->>API: POST /api/process-ticket
     API->>ML: Execute Local NER
-    ML-->>API: Return [REDACTED] Text
+    ML-->>API: Return Redacted String
     API->>ML: Generate text embedding
     ML-->>API: Return [0.01, -0.05... 384d]
-    API->>DB: RPC match_historical_tickets(vector)
+    API->>DB: Execute match_historical_tickets(vector)
     DB-->>API: Top 3 RAG Contexts
-    API->>ML: Inference Logistic Regression
-    ML-->>API: Predicted Category + Confidence
+    API->>ML: Execute Logistic Regression Math
+    ML-->>API: Predicted Category & Confidence
     alt Confidence >= 50%
-        API->>LLM: Strict-Prompt with RAG Context
-        LLM-->>API: Markdown Runbook
-        API->>DB: Save as AUTO_RESOLVED
+        API->>LLM: Prompt with RAG Context constraints
+        LLM-->>API: Generated Markdown Runbook
+        API->>DB: Insert record as AUTO_RESOLVED
     else Confidence < 50%
-        API->>DB: Save as NEEDS_HUMAN
+        API->>DB: Insert record as NEEDS_HUMAN
     end
-    API-->>U: Return Resolution & Status
+    API-->>U: Return Resolution payload
 ```
 
 ## 7. State Transition Diagram
@@ -113,9 +118,9 @@ stateDiagram-v2
     [*] --> Submitted
     Submitted --> PII_Redacted: Local NER Execution
     PII_Redacted --> Embedded: bge-small Vectorization
-    Embedded --> Classified: Logistic Regression
+    Embedded --> Classified: Logistic Regression Inference
     
-    Classified --> Agentic_Evaluation: Confidence Threshold
+    Classified --> Agentic_Evaluation: Confidence Threshold Validation
     
     Agentic_Evaluation --> Needs_Human: Confidence < 50%
     Agentic_Evaluation --> Autonomous_Resolution: Confidence >= 50%
@@ -130,17 +135,9 @@ stateDiagram-v2
     Master_Incident_Drafted --> [*]
 ```
 
-## 8. Data Sources
-- **Initial Training Data:** 1,304 programmatically generated enterprise IT tickets via Groq (`llama-3.3-70b`), utilizing zero-shot prompting techniques to emulate 6 diverse IT categories (Network, Database, Infrastructure, Application, Security, Access Management).
-- **RAG Store:** Supabase PostgreSQL acting as the active Data Lake for real-time Cosine Similarity search.
-
-## 9. Relevant Project Documents & Innovations
-- **"Air-Gapped" Fallback Protocol:** If the external LLM is offline, rate-limited, or disabled for security reasons, the system is engineered to catch the exception, bypass Groq, and deterministically return the exact `#1` closest historical resolution mapped in the vector space.
-- **Agentic Master Incidents:** True agency is achieved by analyzing the meta-state of the live support queue. If the model detects a rapid cluster of mathematically identical vectors (e.g. 3 VPN failures in 3 hours), it autonomously upgrades the isolated ticket into an executive-level outage event.
-
-## 10. Open Source and Libraries
-- **Transformers.js (Xenova):** Enables running HuggingFace models (`bert-base-NER`, `bge-small`) entirely locally in the browser/Node.js environment via WebAssembly.
-- **Scikit-Learn / Pandas:** Used exclusively for off-server data engineering, pipeline formatting, and deriving the optimized Logistic Regression weights.
-- **pgvector:** Open-source PostgreSQL extension for high-performance vector search.
-- **Framer Motion:** Used to build the ultra-premium glassmorphism UI micro-interactions.
-- **Next.js & TailwindCSS:** The core open-source framework handling React compilation and styling.
+## 8. Open Source and Library Utilization
+- **Transformers.js (Xenova):** Enables the execution of HuggingFace models (`bert-base-NER`, `bge-small`) natively within the browser and Node.js environments via WebAssembly, facilitating zero-trust data processing.
+- **Scikit-Learn & Pandas:** Utilized for local data engineering, exploratory data analysis, and deriving the optimized Logistic Regression coefficients.
+- **pgvector:** Open-source PostgreSQL extension handling high-performance vector operations and Cosine Similarity calculations at the database layer.
+- **Framer Motion:** Open-source animation library for React used to construct complex micro-interactions and the dynamic UI state transitions.
+- **Next.js & TailwindCSS:** The core open-source frameworks powering the frontend delivery, backend API routing, and utility-first styling.
