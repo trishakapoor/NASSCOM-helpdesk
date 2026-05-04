@@ -94,7 +94,7 @@ export default function VectorSpaceVisualization() {
                     camera: { eye: { x: 1.5, y: 1.5, z: 1.5 } }
                   },
                   legend: { font: { color: '#fff' } }
-                }}
+                } as any}
                 useResizeHandler={true}
                 style={{ width: '100%', height: '100%' }}
                 config={{ responsive: true, displayModeBar: false }}
