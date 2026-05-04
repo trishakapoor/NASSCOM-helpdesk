@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { rawText, logContent } = await req.json();
+    const { rawText, logContent, useLLM = true } = await req.json();
     const fullText = logContent ? `${rawText}\n\nLogs:\n${logContent}` : rawText;
 
     const thoughtProcess: string[] = ["Initializing pipeline..."];
@@ -112,13 +112,15 @@ export async function POST(req: NextRequest) {
     // 4. RAG / Similarity Search
     // ───────────────────────────────────────────────────────────
     let contextString = "";
+    let similarDocs: any[] = [];
     if (supabase && embeddingArray) {
       thoughtProcess.push("Searching Supabase pgvector for top 3 similar past resolutions...");
-      const { data: similarDocs, error: searchError } = await supabase.rpc('match_historical_tickets', {
+      const { data, error: searchError } = await supabase.rpc('match_historical_tickets', {
         query_embedding: embeddingArray,
         match_threshold: 0.5,
         match_count: 3
       });
+      similarDocs = data || [];
   
       if (searchError) {
         console.error("Vector search error", searchError);
@@ -146,73 +148,234 @@ export async function POST(req: NextRequest) {
     }
 
     // ───────────────────────────────────────────────────────────
-    // 5. Groq LLM Inference
+    // 5. ML Classification & Confidence Scoring (Local KNN / Custom Model)
     // ───────────────────────────────────────────────────────────
-    thoughtProcess.push("Prompting Groq Llama 3.3 for resolution synthesis and confidence score...");
+    let finalCategory = 'Infrastructure';
+    let finalConfidence = 0.5;
+
+    if (embeddingArray) {
+      thoughtProcess.push("Running Dedicated ML Classifier (Logistic Regression Softmax)...");
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const lrModelPath = path.join(process.cwd(), 'data', 'lr_model.json');
+        
+        if (fs.existsSync(lrModelPath)) {
+          const lrModel = JSON.parse(fs.readFileSync(lrModelPath, 'utf-8'));
+          const classes = lrModel.classes;
+          const weights = lrModel.weights;
+          const intercepts = lrModel.intercepts;
+          
+          let maxProb = -1;
+          let bestCat = 'Infrastructure';
+          
+          const logits = classes.map((cat: string, i: number) => {
+            let z = intercepts[i];
+            for (let j = 0; j < embeddingArray.length; j++) {
+              z += weights[i][j] * embeddingArray[j];
+            }
+            return z;
+          });
+          
+          const maxLogit = Math.max(...logits);
+          const exps = logits.map((z: number) => Math.exp(z - maxLogit));
+          const sumExps = exps.reduce((a: number, b: number) => a + b, 0);
+          const probs = exps.map((e: number) => e / sumExps);
+          
+          for (let i = 0; i < probs.length; i++) {
+            if (probs[i] > maxProb) {
+              maxProb = probs[i];
+              bestCat = classes[i];
+            }
+          }
+          
+          finalCategory = bestCat;
+          finalConfidence = maxProb;
+          thoughtProcess.push(`✅ Custom ML (Logistic Regression) predicted: ${finalCategory} (Confidence: ${(finalConfidence * 100).toFixed(1)}%)`);
+        } else {
+          thoughtProcess.push("⚠ LR Model weights not found. Falling back to default category.");
+        }
+      } catch (e) {
+        console.error("Local ML classification failed", e);
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────
+    // 5b. Groq LLM Inference (With Deterministic Fallback)
+    // ───────────────────────────────────────────────────────────
+    thoughtProcess.push("Attempting Groq Llama 3.3 for dynamic synthesis...");
     let groqResponse = null;
     let fallbackToAdmin = false;
+    let finalResolution = 'System requires human escalation.';
+    let finalPriority = 'Medium';
 
-    if (groq) {
-      const prompt = `You are an internal L1 IT Helpdesk Agent. Your goal is to analyze the user's issue, categorize it into exactly one of these six categories: 'Infrastructure', 'Application', 'Security', 'Database', 'Network', 'Access Management'. 
-Then, using the provided historical issues, formulate a step-by-step markdown resolution.
-Finally, return a confidence_score between 0.00 and 1.00 indicating how certain you are that this resolution will solve their specific issue. If the user's issue is absurd, dangerous, or not matching the RAG context, lower the confidence < 0.75.
+    // Extract the raw historical resolution from your RAG data
+    let bestHistoricalResolution = "We could not find a historical fix. Routing to human.";
+    if (similarDocs && similarDocs.length > 0) {
+        bestHistoricalResolution = similarDocs[0].resolution_steps; // Grab the #1 closest match
+    }
+
+    if (finalConfidence < 0.50) {
+      thoughtProcess.push("⚠ Confidence < 0.50. Agentic Layer: Bypassing LLM and routing immediately to NEEDS_HUMAN queue.");
+    } else {
+      try {
+        if (groq && useLLM) {
+          const prompt = `You are an internal L1 IT Helpdesk Agent.
+Analyze the user's issue and assign a priority level: 'Critical', 'High', 'Medium', or 'Low'.
+
+CRITICAL INSTRUCTION: You must strictly use ONLY the 'Historical Past Resolutions to Use as Context' provided below. Do NOT invent, guess, or hallucinate any fake troubleshooting steps. If the provided historical context does not contain a clear fix for the User Issue, your resolution MUST be exactly: "No historical runbook found. System requires human escalation."
 
 User Issue:
 ${sanitizedText}
 
+Category (Determined by ML Model): ${finalCategory}
+
 Historical Past Resolutions to Use as Context:
 ${contextString || "No historical context available."}
 
-Return EXACTLY a raw JSON object with no markdown wrappers (like \`\`\`json) with the format:
+Return EXACTLY a raw JSON object with no markdown wrappers with the format:
 {
-  "category": "String",
-  "resolution": "Markdown string of resolution steps, or a simple text saying it requires an expert.",
-  "confidenceScore": 0.85
+  "priority": "Critical|High|Medium|Low",
+  "resolution": "Markdown string of resolution steps strictly from context, or the exact escalation string."
 }`;
 
-      try {
-        const completion = await groq.chat.completions.create({
-          messages: [{ role: 'user', content: prompt }],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.1,
-          response_format: { type: "json_object" }
-        });
+          const completion = await groq.chat.completions.create({
+            messages: [{ role: 'user', content: prompt }],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.1,
+            response_format: { type: "json_object" }
+          });
 
-        groqResponse = JSON.parse(completion.choices[0]?.message?.content || '{}');
+          groqResponse = JSON.parse(completion.choices[0]?.message?.content || '{}');
+          finalPriority = groqResponse.priority || 'Medium';
+          finalResolution = groqResponse.resolution;
+          thoughtProcess.push("✅ Dynamic resolution generated via LLM.");
+        } else {
+          // FORCE FALLBACK (Simulating offline/independent mode)
+          throw new Error("LLM Synthesis Disabled or Unavailable.");
+        }
       } catch(e) {
-         console.error("Groq inference failed", e);
-         fallbackToAdmin = true;
-         thoughtProcess.push("Groq inference failed — escalating to human.");
+         thoughtProcess.push("⚠ LLM unavailable or disabled. Falling back to exact historical database match...");
+         
+         // If Groq fails, return the exact historical resolution from database!
+         finalResolution = `*(Historical Match)*\n\n${bestHistoricalResolution}`;
+         
+         if (finalConfidence < 0.50) {
+             fallbackToAdmin = true;
+         } else {
+             thoughtProcess.push("✅ Ticket successfully resolved using offline RAG retrieval.");
+         }
       }
-    } else {
-      thoughtProcess.push("Warning: Groq not configured. Forcing Admin Escalation.");
-      fallbackToAdmin = true;
     }
 
-    const finalCategory = groqResponse?.category || 'Infrastructure';
-    const finalResolution = groqResponse?.resolution || 'System requires human escalation.';
-    const finalConfidence = fallbackToAdmin ? 0.0 : (groqResponse?.confidenceScore || 0.0);
-    const finalStatus = finalConfidence >= 0.75 ? 'AUTO_RESOLVED' : 'NEEDS_HUMAN';
+    if (fallbackToAdmin) finalConfidence = 0.0;
+    const finalStatus = finalConfidence >= 0.50 ? 'AUTO_RESOLVED' : 'NEEDS_HUMAN';
 
-    thoughtProcess.push(`Inference complete! Confidence: ${finalConfidence}. Status: ${finalStatus}`);
+    thoughtProcess.push(`Status determined: ${finalStatus}`);
 
-    // 6. Push to live_tickets if ESCALATED
-    if (supabase && finalStatus === 'NEEDS_HUMAN') {
-       thoughtProcess.push("Routing to Support Engineers (Needs Human)...");
-       await supabase.from('live_tickets').insert({
-         category: finalCategory,
-         original_redacted_text: sanitizedText,
-         confidence_score: finalConfidence,
-         status: finalStatus
-       });
+    // ───────────────────────────────────────────────────────────
+    // 6. Agentic Layer — Repeated Issue Detection
+    // ───────────────────────────────────────────────────────────
+    let repeatCount = 0;
+    let automationSuggested = false;
+
+    if (supabase && embeddingArray) {
+      try {
+        // Use pgvector to count similar live tickets in the last 72 hours
+        const { data: similarCountData, error: repeatErr } = await supabase.rpc('count_similar_live_tickets_vector', {
+          query_embedding: `[${embeddingArray.join(',')}]`,
+          target_category: finalCategory,
+          match_threshold: 0.85,
+          hours_back: 72
+        });
+
+        if (repeatErr) throw repeatErr;
+
+        repeatCount = similarCountData || 0;
+
+        // If 3+ similar tickets in 72h, trigger Agentic Master Incident
+        if (repeatCount >= 3) {
+          automationSuggested = true;
+          thoughtProcess.push(`⚡ Agentic Layer: Vector search detected ${repeatCount} similar ${finalCategory} tickets in the last 72 hours.`);
+          thoughtProcess.push("⚡ Agentic Layer: Halting standard flow to auto-generate Master Incident Runbook & Mass Communication Draft...");
+
+          if (groq) {
+            const incidentPrompt = `You are an Autonomous AI Incident Commander.
+A cluster of highly similar IT tickets has been detected indicating a potential widespread outage.
+Category: ${finalCategory}
+Sample Ticket: ${sanitizedText}
+
+Draft a raw JSON object to handle this master incident. Format:
+{
+  "incident_summary": "1 sentence executive summary of the outage",
+  "mass_communication_draft": "A short, polite Slack/Email message to send to the company acknowledging the issue and providing a workaround if any.",
+  "remediation_runbook": "Markdown formatted step-by-step technical runbook for the L2/L3 engineers to resolve this."
+}`;
+
+            try {
+              const incCompletion = await groq.chat.completions.create({
+                messages: [{ role: 'user', content: incidentPrompt }],
+                model: 'llama-3.3-70b-versatile',
+                temperature: 0.1,
+                response_format: { type: "json_object" }
+              });
+              
+              const incidentData = JSON.parse(incCompletion.choices[0]?.message?.content || '{}');
+              thoughtProcess.push("✅ Agentic Layer: Master Incident drafted successfully.");
+              
+              // Insert Master Incident
+              await supabase.from('master_incidents').insert({
+                category: finalCategory,
+                triggering_ticket_text: sanitizedText,
+                incident_summary: incidentData.incident_summary || 'N/A',
+                mass_communication_draft: incidentData.mass_communication_draft || 'N/A',
+                remediation_runbook: incidentData.remediation_runbook || 'N/A',
+                related_ticket_count: repeatCount
+              });
+              
+            } catch(incErr) {
+              console.error("Master Incident Generation Failed", incErr);
+              thoughtProcess.push("⚠ Agentic Layer: Master Incident Generation Failed.");
+            }
+          }
+
+        } else if (repeatCount > 0) {
+          thoughtProcess.push(`📊 Vector search detected ${repeatCount} similar ${finalCategory} ticket(s) in the last 72 hours.`);
+        }
+      } catch (err) {
+        console.warn("Vector repeat detection error:", err);
+      }
+    }
+
+    // 7. Push to live_tickets
+    if (supabase) {
+      if (finalStatus === 'NEEDS_HUMAN') {
+        thoughtProcess.push("Routing to Support Engineers (Needs Human)...");
+      }
+      
+      const insertPayload: Record<string, any> = {
+        category: finalCategory,
+        priority: finalPriority,
+        original_redacted_text: sanitizedText,
+        confidence_score: finalConfidence,
+        status: finalStatus,
+        repeat_count: repeatCount,
+        automation_suggested: automationSuggested,
+        embedding: embeddingArray ? `[${embeddingArray.join(',')}]` : null
+      };
+
+      await supabase.from('live_tickets').insert(insertPayload);
     }
 
     return NextResponse.json({
       status: finalStatus === 'NEEDS_HUMAN' ? 'ESCALATED' : 'SUCCESS',
       category: finalCategory,
+      priority: finalPriority,
       sanitizedText: sanitizedText,
       resolution: finalStatus === 'NEEDS_HUMAN' ? null : finalResolution,
       confidenceScore: finalConfidence,
+      repeatCount: repeatCount,
+      automationSuggested: automationSuggested,
       thoughtProcess: thoughtProcess
     });
 

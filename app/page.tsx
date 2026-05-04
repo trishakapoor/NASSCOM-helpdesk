@@ -11,6 +11,7 @@ import { Loader2, Zap, ShieldAlert, CheckCircle2 } from "lucide-react";
 export default function SubmissionPortal() {
   const [issueText, setIssueText] = useState("");
   const [logText, setLogText] = useState("");
+  const [isAirGapped, setIsAirGapped] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [ticketStatus, setTicketStatus] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export default function SubmissionPortal() {
         const res = await fetch("/api/process-ticket", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rawText: issueText, logContent: logText }),
+          body: JSON.stringify({ rawText: issueText, logContent: logText, useLLM: !isAirGapped }),
           signal: controller.signal
         });
 
@@ -96,6 +97,23 @@ export default function SubmissionPortal() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-800">IT Helpdesk AI</h1>
             <p className="text-sm font-medium text-slate-500">Zero-Trust L1 Agent Pipeline</p>
           </div>
+        </div>
+
+        {/* Air-Gapped Toggle Switch */}
+        <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200">
+          <span className={`text-xs font-bold uppercase tracking-wider ${!isAirGapped ? 'text-indigo-600' : 'text-slate-400'}`}>Cloud Connected</span>
+          
+          <button 
+            onClick={() => setIsAirGapped(!isAirGapped)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${isAirGapped ? 'bg-rose-500' : 'bg-indigo-500'}`}
+          >
+            <span className="sr-only">Toggle Air-Gapped Mode</span>
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAirGapped ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
+          
+          <span className={`text-xs font-bold uppercase tracking-wider ${isAirGapped ? 'text-rose-600' : 'text-slate-400'}`}>Air-Gapped / Offline</span>
         </div>
       </header>
 
