@@ -132,7 +132,7 @@ export default function SubmissionPortal() {
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-                Agentic Helpdesk <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-white/10 text-[10px] uppercase tracking-widest text-cyan-600 dark:text-cyan-400 font-mono border border-cyan-200 dark:border-cyan-500/20">v2.0</span>
+                Captain Obvious <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-white/10 text-[10px] uppercase tracking-widest text-cyan-600 dark:text-cyan-400 font-mono border border-cyan-200 dark:border-cyan-500/20">L1 Agent</span>
               </h1>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400 tracking-wide mt-1">Zero-Trust Enterprise Triage</p>
             </div>

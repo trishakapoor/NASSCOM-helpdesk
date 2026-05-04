@@ -1,4 +1,4 @@
-# Project Architecture & Design Documentation
+# Captain Obvious: Project Architecture & Design Documentation
 
 ## 1. Detailed Proposed Solution Architecture & Components
 This project implements a **Zero-Trust Agentic IT Helpdesk**, engineered to automate Level-1 (L1) support triage while adhering to strict enterprise data privacy protocols and offline availability requirements.
@@ -141,3 +141,26 @@ stateDiagram-v2
 - **pgvector:** Open-source PostgreSQL extension handling high-performance vector operations and Cosine Similarity calculations at the database layer.
 - **Framer Motion:** Open-source animation library for React used to construct complex micro-interactions and the dynamic UI state transitions.
 - **Next.js & TailwindCSS:** The core open-source frameworks powering the frontend delivery, backend API routing, and utility-first styling.
+
+## 11. Example Issues to Test in the Web UI
+
+You can copy and paste the following examples directly into the **"Issue Description"** box in the UI to evaluate the system's capabilities:
+
+### Test Case 1: The High-Confidence Auto-Resolve (Database Category)
+*Proves the PII Redaction WebAssembly and Local Logistic Regression are perfectly calibrated to Auto-Resolve.*
+> "My name is Sarah Connor, my IP is 10.45.2.1, and the production PostgreSQL database is throwing deadlock errors when I try to run the monthly payroll query."
+
+### Test Case 2: The Agentic Master Incident Trigger (Network Category)
+*Proves the AI acts autonomously. **Submit this exact same message 3 or 4 times in a row.***
+> "The VPN is down! I am working remotely and my Cisco AnyConnect keeps failing to authenticate."
+*(On the 3rd or 4th attempt, the Agentic Layer will halt the pipeline and automatically draft a Master Incident Runbook in the logs).*
+
+### Test Case 3: The "Air-Gapped" Offline Fallback (Application Category)
+*Proves fault tolerance. **Flip your UI switch to "Air-Gapped / Offline" and submit this:***
+> "I cannot open Microsoft Outlook. Every time I click the app, it instantly crashes and throws an Error Code 0x8004010F."
+*(The pipeline will execute instantly without touching the Groq API, retrieving the #1 exact vector match).*
+
+### Test Case 4: The Confused User (Low Confidence Escalate)
+*Proves the system is smart enough to know what it doesn't know, preventing hallucinations.*
+> "My keyboard feels weird and sometimes the screen gets slightly brighter when I open a PDF about the company picnic."
+*(The math won't map perfectly to any specific IT vector, dropping confidence below 50%, instantly routing to the NEEDS_HUMAN queue).*

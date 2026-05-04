@@ -1,4 +1,4 @@
-# Enterprise Zero-Trust IT Helpdesk
+# Captain Obvious: Enterprise Zero-Trust IT Helpdesk
 
 An advanced, privacy-first IT Helpdesk system designed for enterprise environments. This project automates Level-1 (L1) support triage and resolution using a hybrid local-ML and cloud-LLM architecture, specifically engineered to operate in air-gapped or restricted network environments.
 

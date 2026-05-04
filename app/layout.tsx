@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Enterprise IT Helpdesk",
+  title: "Captain Obvious - IT Helpdesk",
   description: "Agentic Zero-Trust IT Resolution System",
 };
 
