@@ -3,6 +3,7 @@ import { groq } from "@/lib/groq";
 import { supabase } from "@/lib/supabase";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import lrModelData from "@/data/lr_model.json";
 
 // Initialize Upstash Redis if possible
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -55,10 +56,8 @@ export async function POST(req: NextRequest) {
     let sanitizedText = fullText;
     let useLocalEmbeddings = false;
 
-    // Only attempt local ML models in development (they need ~600MB RAM)
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (!isProduction) {
+    // Enable local ML models in production for the hackathon flex
+    if (true) {
       try {
         thoughtProcess.push("Loading local NER model (Xenova/bert-base-NER)...");
         const PipelineSingleton = (await import("@/lib/ml")).default;
@@ -93,7 +92,7 @@ export async function POST(req: NextRequest) {
     // ───────────────────────────────────────────────────────────
     let embeddingArray: number[] | null = null;
 
-    if (useLocalEmbeddings && !isProduction) {
+    if (useLocalEmbeddings) {
       try {
         thoughtProcess.push("Generating embeddings locally using bge-small...");
         const PipelineSingleton = (await import("@/lib/ml")).default;
@@ -156,12 +155,8 @@ export async function POST(req: NextRequest) {
     if (embeddingArray) {
       thoughtProcess.push("Running Dedicated ML Classifier (Logistic Regression Softmax)...");
       try {
-        const fs = await import('fs');
-        const path = await import('path');
-        const lrModelPath = path.join(process.cwd(), 'data', 'lr_model.json');
-        
-        if (fs.existsSync(lrModelPath)) {
-          const lrModel = JSON.parse(fs.readFileSync(lrModelPath, 'utf-8'));
+        if (lrModelData) {
+          const lrModel = lrModelData as any;
           const classes = lrModel.classes;
           const weights = lrModel.weights;
           const intercepts = lrModel.intercepts;
