@@ -147,45 +147,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ───────────────────────────────────────────────────────────
-    // 5. ML Classification & Confidence Scoring (Local KNN / Custom Model)
+    // 5. ML Classification & Confidence Scoring
     // ───────────────────────────────────────────────────────────
     let finalCategory = 'Infrastructure';
     let finalConfidence = 0.5;
-
-    if (!embeddingArray && groq && useLLM) {
-      thoughtProcess.push("Vercel Edge ML limits detected. Using Real AI (Groq Llama 3.3) for strict semantic classification & confidence scoring...");
-      try {
-        const classPrompt = `You are an AI Classifier. Analyze the following IT issue.
-Assign it to exactly ONE of these categories: 'Infrastructure', 'Application', 'Security', 'Database', 'Network', or 'Access Management'.
-Generate a mathematical confidence score (float between 0.00 and 0.99) representing your certainty. If the issue is vague or non-IT related (e.g. "weird keyboard", "picnic"), the confidence MUST be strictly below 0.40.
-
-Issue: "${sanitizedText}"
-
-Return EXACTLY a raw JSON object:
-{
-  "category": "Selected Category",
-  "confidence": 0.89
-}`;
-        
-        const classCompletion = await groq.chat.completions.create({
-          messages: [{ role: 'user', content: classPrompt }],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.0,
-          response_format: { type: "json_object" }
-        });
-
-        const classData = JSON.parse(classCompletion.choices[0]?.message?.content || '{}');
-        if (classData.category) finalCategory = classData.category;
-        if (classData.confidence) finalConfidence = classData.confidence;
-        
-        thoughtProcess.push(`✅ AI Classification computed: ${finalCategory} (Confidence: ${(finalConfidence * 100).toFixed(1)}%)`);
-      } catch (e) {
-        console.warn("Groq Classification fallback failed", e);
-        thoughtProcess.push("⚠ AI Classification failed. Defaulting to baseline.");
-      }
-    }
+    let finalResolution = 'System requires human escalation.';
+    let finalPriority = 'Medium';
+    let fallbackToAdmin = false;
 
     if (embeddingArray) {
+      // ── PATH A: Full Local ML Pipeline (localhost / powerful servers) ──
       thoughtProcess.push("Running Dedicated ML Classifier (Logistic Regression Softmax)...");
       try {
         if (lrModelData) {
@@ -220,35 +191,24 @@ Return EXACTLY a raw JSON object:
           finalCategory = bestCat;
           finalConfidence = maxProb;
           thoughtProcess.push(`✅ Custom ML (Logistic Regression) predicted: ${finalCategory} (Confidence: ${(finalConfidence * 100).toFixed(1)}%)`);
-        } else {
-          thoughtProcess.push("⚠ LR Model weights not found. Falling back to default category.");
         }
       } catch (e) {
         console.error("Local ML classification failed", e);
       }
-    }
 
-    // ───────────────────────────────────────────────────────────
-    // 5b. Groq LLM Inference (With Deterministic Fallback)
-    // ───────────────────────────────────────────────────────────
-    thoughtProcess.push("Attempting Groq Llama 3.3 for dynamic synthesis...");
-    let groqResponse = null;
-    let fallbackToAdmin = false;
-    let finalResolution = 'System requires human escalation.';
-    let finalPriority = 'Medium';
+      // Now generate the resolution via Groq (if confidence is high enough)
+      thoughtProcess.push("Attempting Groq Llama 3.3 for dynamic synthesis...");
+      let bestHistoricalResolution = "No historical match found.";
+      if (similarDocs && similarDocs.length > 0) {
+        bestHistoricalResolution = similarDocs[0].resolution_steps;
+      }
 
-    // Extract the raw historical resolution from your RAG data
-    let bestHistoricalResolution = "We could not find a historical fix. Routing to human.";
-    if (similarDocs && similarDocs.length > 0) {
-        bestHistoricalResolution = similarDocs[0].resolution_steps; // Grab the #1 closest match
-    }
-
-    if (finalConfidence < 0.50) {
-      thoughtProcess.push("⚠ Confidence < 0.50. Agentic Layer: Bypassing LLM and routing immediately to NEEDS_HUMAN queue.");
-    } else {
-      try {
-        if (groq && useLLM) {
-          const prompt = `You are an internal L1 IT Helpdesk Agent.
+      if (finalConfidence < 0.50) {
+        thoughtProcess.push("⚠ Confidence < 0.50. Agentic Layer: Bypassing LLM and routing to NEEDS_HUMAN queue.");
+      } else {
+        try {
+          if (groq && useLLM) {
+            const prompt = `You are an internal L1 IT Helpdesk Agent.
 Analyze the user's issue and assign a priority level: 'Critical', 'High', 'Medium', or 'Low'.
 
 CRITICAL INSTRUCTION: You must strictly use ONLY the 'Historical Past Resolutions to Use as Context' provided below. Do NOT invent, guess, or hallucinate any fake troubleshooting steps. If the provided historical context does not contain a clear fix for the User Issue, your resolution MUST be exactly: "No historical runbook found. System requires human escalation."
@@ -267,33 +227,80 @@ Return EXACTLY a raw JSON object with no markdown wrappers with the format:
   "resolution": "Markdown string of resolution steps strictly from context, or the exact escalation string."
 }`;
 
-          const completion = await groq.chat.completions.create({
-            messages: [{ role: 'user', content: prompt }],
-            model: 'llama-3.3-70b-versatile',
-            temperature: 0.1,
-            response_format: { type: "json_object" }
-          });
+            const completion = await groq.chat.completions.create({
+              messages: [{ role: 'user', content: prompt }],
+              model: 'llama-3.3-70b-versatile',
+              temperature: 0.1,
+              response_format: { type: "json_object" }
+            });
 
-          groqResponse = JSON.parse(completion.choices[0]?.message?.content || '{}');
-          finalPriority = groqResponse.priority || 'Medium';
-          finalResolution = groqResponse.resolution;
-          thoughtProcess.push("✅ Dynamic resolution generated via LLM.");
-        } else {
-          // FORCE FALLBACK (Simulating offline/independent mode)
-          throw new Error("LLM Synthesis Disabled or Unavailable.");
+            const groqResponse = JSON.parse(completion.choices[0]?.message?.content || '{}');
+            finalPriority = groqResponse.priority || 'Medium';
+            finalResolution = groqResponse.resolution;
+            thoughtProcess.push("✅ Dynamic resolution generated via LLM.");
+          } else {
+            throw new Error("LLM Synthesis Disabled or Unavailable.");
+          }
+        } catch(e) {
+          thoughtProcess.push("⚠ LLM unavailable or disabled. Falling back to exact historical database match...");
+          finalResolution = `*(Historical Match)*\n\n${bestHistoricalResolution}`;
+          thoughtProcess.push("✅ Ticket successfully resolved using offline RAG retrieval.");
         }
-      } catch(e) {
-         thoughtProcess.push("⚠ LLM unavailable or disabled. Falling back to exact historical database match...");
-         
-         // If Groq fails, return the exact historical resolution from database!
-         finalResolution = `*(Historical Match)*\n\n${bestHistoricalResolution}`;
-         
-         if (finalConfidence < 0.50) {
-             fallbackToAdmin = true;
-         } else {
-             thoughtProcess.push("✅ Ticket successfully resolved using offline RAG retrieval.");
-         }
       }
+
+    } else if (groq && useLLM) {
+      // ── PATH B: Vercel/Cloud — WASM models unavailable ──
+      // Single unified Groq call that classifies + resolves in one shot
+      thoughtProcess.push("WASM models unavailable on this host. Routing to Groq Llama 3.3 for unified classification & resolution...");
+      try {
+        const unifiedPrompt = `You are an AI-powered L1 IT Helpdesk Agent performing two tasks at once.
+
+TASK 1 — CLASSIFICATION:
+Analyze the following IT issue and assign it to exactly ONE of these categories: 'Infrastructure', 'Application', 'Security', 'Database', 'Network', or 'Access Management'.
+Generate a confidence score (float between 0.50 and 0.99) representing how certain you are about the category. If the issue is extremely vague, non-technical, or unrelated to IT (e.g. "my keyboard feels weird during a picnic"), the confidence MUST be below 0.40.
+
+TASK 2 — RESOLUTION:
+Provide practical, actionable troubleshooting steps for the issue based on your IT knowledge. Assign a priority level: 'Critical', 'High', 'Medium', or 'Low'.
+
+Historical Context (use if relevant):
+${contextString || "No historical context available."}
+
+User Issue:
+"${sanitizedText}"
+
+Return EXACTLY a raw JSON object:
+{
+  "category": "Selected Category",
+  "confidence": 0.92,
+  "priority": "Critical|High|Medium|Low",
+  "resolution": "Markdown formatted troubleshooting steps"
+}`;
+
+        const unifiedCompletion = await groq.chat.completions.create({
+          messages: [{ role: 'user', content: unifiedPrompt }],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.1,
+          response_format: { type: "json_object" }
+        });
+
+        const result = JSON.parse(unifiedCompletion.choices[0]?.message?.content || '{}');
+        finalCategory = result.category || 'Infrastructure';
+        finalConfidence = typeof result.confidence === 'number' ? result.confidence : 0.5;
+        finalPriority = result.priority || 'Medium';
+        finalResolution = result.resolution || 'System requires human escalation.';
+
+        thoughtProcess.push(`✅ AI Classification: ${finalCategory} (Confidence: ${(finalConfidence * 100).toFixed(1)}%)`);
+        thoughtProcess.push(`✅ AI Resolution generated with priority: ${finalPriority}`);
+      } catch (e) {
+        console.error("Unified Groq classification+resolution failed", e);
+        thoughtProcess.push("⚠ AI pipeline failed. Routing to human escalation.");
+        finalConfidence = 0.0;
+      }
+
+    } else {
+      // ── PATH C: Fully Offline — no embeddings, no Groq ──
+      thoughtProcess.push("⚠ No ML models and no LLM available. Routing to NEEDS_HUMAN queue.");
+      finalConfidence = 0.0;
     }
 
     if (fallbackToAdmin) finalConfidence = 0.0;
