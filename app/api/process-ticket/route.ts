@@ -152,6 +152,39 @@ export async function POST(req: NextRequest) {
     let finalCategory = 'Infrastructure';
     let finalConfidence = 0.5;
 
+    if (!embeddingArray && groq && useLLM) {
+      thoughtProcess.push("Vercel Edge ML limits detected. Using Real AI (Groq Llama 3.3) for strict semantic classification & confidence scoring...");
+      try {
+        const classPrompt = `You are an AI Classifier. Analyze the following IT issue.
+Assign it to exactly ONE of these categories: 'Infrastructure', 'Application', 'Security', 'Database', 'Network', or 'Access Management'.
+Generate a mathematical confidence score (float between 0.00 and 0.99) representing your certainty. If the issue is vague or non-IT related (e.g. "weird keyboard", "picnic"), the confidence MUST be strictly below 0.40.
+
+Issue: "${sanitizedText}"
+
+Return EXACTLY a raw JSON object:
+{
+  "category": "Selected Category",
+  "confidence": 0.89
+}`;
+        
+        const classCompletion = await groq.chat.completions.create({
+          messages: [{ role: 'user', content: classPrompt }],
+          model: 'llama-3.3-70b-versatile',
+          temperature: 0.0,
+          response_format: { type: "json_object" }
+        });
+
+        const classData = JSON.parse(classCompletion.choices[0]?.message?.content || '{}');
+        if (classData.category) finalCategory = classData.category;
+        if (classData.confidence) finalConfidence = classData.confidence;
+        
+        thoughtProcess.push(`✅ AI Classification computed: ${finalCategory} (Confidence: ${(finalConfidence * 100).toFixed(1)}%)`);
+      } catch (e) {
+        console.warn("Groq Classification fallback failed", e);
+        thoughtProcess.push("⚠ AI Classification failed. Defaulting to baseline.");
+      }
+    }
+
     if (embeddingArray) {
       thoughtProcess.push("Running Dedicated ML Classifier (Logistic Regression Softmax)...");
       try {
