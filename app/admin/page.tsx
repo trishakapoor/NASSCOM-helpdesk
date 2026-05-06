@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LayoutDashboard, AlertCircle, CheckCircle2, Zap } from "lucide-react";
 
+import { AdminActions } from "@/components/AdminActions";
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
@@ -25,25 +27,31 @@ export default async function AdminDashboard() {
   const automationCandidates = tickets.filter(t => t.status === "NEEDS_HUMAN" && t.confidence_score >= 0.85);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
+    <div className="min-h-screen bg-[#F8FAFC] p-6 md:p-10 font-sans">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-zinc-200">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-zinc-200 flex items-center justify-center">
-              <LayoutDashboard className="w-6 h-6 text-indigo-600" />
+        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between pb-8 border-b border-slate-200">
+          <div className="flex items-center space-x-5">
+            <div className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
+              <LayoutDashboard className="w-7 h-7 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">IT Triage Dashboard</h1>
-              <p className="text-slate-500 mt-1 font-medium text-sm">Lightwave Enterprise View</p>
+              <div className="flex items-center space-x-3">
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Neural Triage</h1>
+                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-100 px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider">
+                  Council Admin
+                </Badge>
+              </div>
+              <p className="text-slate-500 mt-1 font-medium text-sm flex items-center">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse" />
+                Live Network Monitoring · {tickets.length} total events
+              </p>
             </div>
           </div>
           
-          <div className="mt-4 md:mt-0 flex space-x-3">
-            <Badge variant="outline" className="bg-white px-3 py-1 text-slate-600 shadow-sm border-zinc-200">
-              Total Processed: {tickets.length}
-            </Badge>
+          <div className="mt-6 md:mt-0">
+            <AdminActions />
           </div>
         </header>
 
@@ -133,35 +141,50 @@ export default async function AdminDashboard() {
 function TicketCard({ ticket, type }: { ticket: any, type: "danger" | "success" | "candidate" }) {
   
   let badgeStyle = "";
-  if (type === "danger") badgeStyle = "bg-rose-50 text-rose-700 border-none group-hover:bg-rose-100 transition-colors";
-  if (type === "success") badgeStyle = "bg-emerald-50 text-emerald-700 border-none group-hover:bg-emerald-100 transition-colors";
-  if (type === "candidate") badgeStyle = "bg-blue-50 text-blue-700 border-none group-hover:bg-blue-100 transition-colors";
+  let glowStyle = "";
+  if (type === "danger") {
+    badgeStyle = "bg-rose-50 text-rose-700 border-rose-100 group-hover:bg-rose-100 transition-colors";
+    glowStyle = "border-l-4 border-l-rose-500";
+  }
+  if (type === "success") {
+    badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-100 group-hover:bg-emerald-100 transition-colors";
+    glowStyle = "border-l-4 border-l-emerald-500";
+  }
+  if (type === "candidate") {
+    badgeStyle = "bg-blue-50 text-blue-700 border-blue-100 group-hover:bg-blue-100 transition-colors";
+    glowStyle = "border-l-4 border-l-blue-500";
+  }
 
   return (
-    <Card className="group bg-white border-zinc-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden rounded-2xl">
-      <CardHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between border-b border-slate-50/50 bg-slate-50/30">
+    <Card className={`group bg-white border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden rounded-2xl ${glowStyle}`}>
+      <CardHeader className="px-5 pt-5 pb-3 flex flex-row items-center justify-between bg-slate-50/40">
         <div className="flex space-x-2">
-          <Badge className={badgeStyle}>
+          <Badge variant="outline" className={badgeStyle}>
             {ticket.category || "Uncategorized"}
           </Badge>
           {ticket.priority && (
-            <Badge variant="outline" className="text-[10px] uppercase border-slate-200">
+            <Badge variant="outline" className="text-[9px] uppercase border-slate-200 bg-white font-bold text-slate-500 tracking-tighter">
               {ticket.priority}
             </Badge>
           )}
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Score</span>
-          <span className="text-xs font-mono font-bold text-slate-700">
-            {ticket.confidence_score?.toFixed(2) || '0.00'}
+          <span className="text-[9px] uppercase tracking-widest font-black text-slate-300">Confidence</span>
+          <span className={`text-sm font-mono font-black ${type === 'success' ? 'text-emerald-600' : 'text-slate-700'}`}>
+            {(ticket.confidence_score * 100).toFixed(0)}%
           </span>
         </div>
       </CardHeader>
       <CardContent className="p-5">
-        <p className="text-sm text-slate-600 leading-relaxed line-clamp-4">
-          {ticket.original_redacted_text}
+        <p className="text-sm text-slate-600 leading-relaxed line-clamp-3 font-medium italic opacity-80">
+          "{ticket.original_redacted_text}"
         </p>
+        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          <span>{ticket.created_at ? new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}</span>
+          <span>ID: {ticket.id?.slice(0, 8) || 'Temp'}</span>
+        </div>
       </CardContent>
     </Card>
   );
 }
+
