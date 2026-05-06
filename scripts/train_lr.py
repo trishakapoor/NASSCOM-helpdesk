@@ -34,9 +34,10 @@ def train():
     score = clf.score(X, y)
     print(f"Training Accuracy: {score:.4f}")
 
+    # ═══════════════════════════════════════════════════════════
+    # Export 1: JSON Weights (Legacy fallback for Vercel)
+    # ═══════════════════════════════════════════════════════════
     print("Exporting Weights and Intercepts to JSON...")
-    # clf.coef_ shape is (n_classes, n_features)
-    # clf.intercept_ shape is (n_classes,)
     weights = clf.coef_.tolist()
     intercepts = clf.intercept_.tolist()
 
@@ -50,7 +51,36 @@ def train():
     with open(output_path, 'w') as f:
         json.dump(export_data, f)
         
-    print(f"✅ Exported successfully to {output_path}")
+    print(f"[OK] JSON weights exported to {output_path}")
+
+    # ═══════════════════════════════════════════════════════════
+    # Export 2: ONNX Model (C++ accelerated inference)
+    # ═══════════════════════════════════════════════════════════
+    try:
+        from skl2onnx import convert_sklearn
+        from skl2onnx.common.data_types import FloatTensorType
+
+        print("Exporting Model to ONNX...")
+        # Define the input shape: 1 sample, 384 dimensions (from bge-small)
+        initial_type = [('float_input', FloatTensorType([None, 384]))]
+        onnx_model = convert_sklearn(clf, initial_types=initial_type, target_opset=12)
+
+        onnx_output = '../public/models/classifier.onnx'
+        os.makedirs(os.path.dirname(onnx_output), exist_ok=True)
+        with open(onnx_output, "wb") as f:
+            f.write(onnx_model.SerializeToString())
+
+        print(f"[OK] ONNX model exported to {onnx_output}")
+
+        # Also export the class mapping for the ONNX session
+        class_map_path = '../public/models/class_map.json'
+        with open(class_map_path, 'w') as f:
+            json.dump({"classes": categories, "id2cat": id2cat}, f)
+        print(f"[OK] Class mapping exported to {class_map_path}")
+
+    except ImportError:
+        print("[WARN] skl2onnx not installed. Skipping ONNX export.")
+        print("  Install with: pip install skl2onnx onnxruntime")
 
 if __name__ == "__main__":
     # Ensure run from the scripts dir

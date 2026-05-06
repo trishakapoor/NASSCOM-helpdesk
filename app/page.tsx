@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Zap, ShieldAlert, CheckCircle2, Terminal, Network, Sun, Moon, Trash2, Wand2 } from "lucide-react";
+import { Loader2, Zap, ShieldAlert, CheckCircle2, Terminal, Network, Sun, Moon, Trash2, Wand2, Cpu, Activity } from "lucide-react";
 
 export default function SubmissionPortal() {
   const [issueText, setIssueText] = useState("");
@@ -125,16 +124,20 @@ export default function SubmissionPortal() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center space-x-4"
+            className="flex items-center space-x-5"
           >
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center shadow-[0_0_30px_-5px_rgba(6,182,212,0.3)] dark:shadow-[0_0_30px_-5px_rgba(6,182,212,0.5)] border border-slate-200 dark:border-white/10">
-              <Network className="text-white w-6 h-6" />
+            <div className="w-14 h-14 rounded-[1.2rem] bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-[0_0_40px_-5px_rgba(79,70,229,0.4)] dark:shadow-[0_0_40px_-10px_rgba(6,182,212,0.6)] border border-white/20 relative group">
+              <div className="absolute inset-0 rounded-[1.2rem] bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
+              <Network className="text-white w-7 h-7 relative z-10" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-                Captain Obvious <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-white/10 text-[10px] uppercase tracking-widest text-cyan-600 dark:text-cyan-400 font-mono border border-cyan-200 dark:border-cyan-500/20">L1 Agent</span>
+              <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-slate-900 dark:text-white flex items-center gap-3">
+                CAPTAIN OBVIOUS <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-[10px] uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-black border border-indigo-500/20 shadow-sm">L1 ARCHITECT</span>
               </h1>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 tracking-wide mt-1">Zero-Trust Enterprise Triage</p>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-500 tracking-[0.3em] uppercase mt-1.5 flex items-center gap-2">
+                <span className="w-8 h-[1px] bg-slate-300 dark:bg-slate-800" /> 
+                Zero-Trust Enterprise Triage
+              </p>
             </div>
           </motion.div>
 
@@ -275,31 +278,58 @@ export default function SubmissionPortal() {
             <div className="h-full bg-slate-900 dark:bg-[#09090b] border border-slate-800 dark:border-white/10 shadow-2xl dark:shadow-black/50 flex flex-col rounded-[2rem] overflow-hidden relative">
               
               {/* Terminal Header */}
-              <div className="px-6 py-4 border-b border-slate-800 dark:border-white/5 bg-slate-950/50 dark:bg-white/[0.01] flex items-center justify-between backdrop-blur-md z-20">
-                <div className="flex items-center space-x-3">
-                  <Terminal className="w-4 h-4 text-cyan-400 dark:text-cyan-500 opacity-80" />
-                  <h2 className="font-mono text-slate-200 dark:text-slate-300 text-xs uppercase tracking-widest font-bold">Neural Core Telemetry</h2>
+              <div className="shrink-0 px-6 py-4 border-b border-slate-800 dark:border-white/5 bg-slate-950/50 dark:bg-white/[0.01] flex items-center justify-between backdrop-blur-md z-20">
+                <div className="flex items-center space-x-4">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shadow-inner">
+                    <Terminal className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h2 className="font-mono text-slate-200 dark:text-slate-300 text-xs uppercase tracking-[0.2em] font-black">Neural Core Telemetry</h2>
+                    <p className="text-[9px] text-slate-600 font-mono mt-0.5 tracking-wider uppercase">{thoughtProcess.length > 0 ? `${thoughtProcess.length} ops active` : 'system idle'}</p>
+                  </div>
                 </div>
-                {ticketStatus && (
-                  <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                    <Badge className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold border-0 shadow-lg ${
-                      ticketStatus === 'AUTO_RESOLVED' 
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-emerald-500/20' 
-                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-rose-500/20'
-                    }`}>
-                      {ticketStatus.replace("_", " ")}
-                    </Badge>
-                  </motion.div>
-                )}
+                <div className="flex items-center gap-3">
+                  {loading && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                      <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-wider">Live</span>
+                    </div>
+                  )}
+                  {ticketStatus && (
+                    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                      <Badge className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold border-0 shadow-lg ${
+                        ticketStatus === 'AUTO_RESOLVED' 
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-emerald-500/20' 
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-rose-500/20'
+                      }`}>
+                        {ticketStatus.replace("_", " ")}
+                      </Badge>
+                    </motion.div>
+                  )}
+                </div>
               </div>
               
-              {/* Terminal Output */}
-              <ScrollArea className="flex-1 bg-transparent p-6 font-mono text-[13px] text-slate-400 custom-scrollbar relative z-10">
+              {/* Terminal Output — native scrollable div replaces ScrollArea for reliable flex containment */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 font-mono text-[13px] text-slate-400 custom-scrollbar relative z-10">
                 <AnimatePresence>
                   {thoughtProcess.length === 0 && !loading && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-slate-600 dark:text-slate-600 flex items-center space-x-2">
-                      <span className="w-2 h-4 bg-cyan-500/50 animate-pulse block" />
-                      <span>Awaiting telemetry stream...</span>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-center py-16">
+                      <div className="relative mb-6">
+                        <div className="w-16 h-16 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 flex items-center justify-center">
+                          <Cpu className="w-7 h-7 text-cyan-500/30" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+                          <Activity className="w-2.5 h-2.5 text-slate-600" />
+                        </div>
+                      </div>
+                      <p className="text-slate-600 text-sm mb-1">Awaiting telemetry stream</p>
+                      <p className="text-slate-700 text-xs">Submit a ticket to engage the Multi-Agent Council</p>
+                      <div className="flex items-center gap-4 mt-6 text-[10px] text-slate-700 font-mono">
+                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500/30" />Analyser</span>
+                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500/30" />Manager</span>
+                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500/30" />Triage</span>
+                        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-cyan-500/30" />Synthesis</span>
+                      </div>
                     </motion.div>
                   )}
                   {thoughtProcess.map((step, i) => (
@@ -308,68 +338,104 @@ export default function SubmissionPortal() {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="mb-4 flex items-start group"
+                      className="mb-3 flex items-start group"
                     >
-                      <span className="text-cyan-500 mr-3 mt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">$&gt;</span> 
-                      <span className={`leading-relaxed ${step.includes('✅') ? 'text-emerald-400' : step.includes('⚠') || step.includes('Error') ? 'text-rose-400' : step.includes('⚡') ? 'text-amber-400' : 'text-slate-300'}`}>
-                        {step}
+                      <span className="text-cyan-500/60 mr-3 mt-0.5 shrink-0 group-hover:text-cyan-400 transition-colors text-xs">{String(i + 1).padStart(2, '0')}</span> 
+                      <span className={`leading-relaxed break-words overflow-wrap-anywhere ${
+                        step.includes('✅') ? 'text-emerald-400' : 
+                        step.includes('⚠') || step.includes('Error') ? 'text-rose-400' : 
+                        step.includes('⚡') ? 'text-amber-400' : 
+                        step.includes('Council verdict') ? 'text-white font-semibold' :
+                        'text-slate-300'
+                      }`}>
+                        {step.startsWith('[Analyser') && <span className="text-emerald-400 mr-1.5 inline-flex"><Activity className="w-3 h-3 self-center" /></span>}
+                        {step.startsWith('[Manager') && <span className="text-indigo-400 mr-1.5 inline-flex"><Network className="w-3 h-3 self-center" /></span>}
+                        {step.startsWith('[Triage') && <span className="text-amber-400 mr-1.5 inline-flex"><ShieldAlert className="w-3 h-3 self-center" /></span>}
+                        {step.startsWith('[Synthesis') && <span className="text-cyan-400 mr-1.5 inline-flex"><Wand2 className="w-3 h-3 self-center" /></span>}
+                        
+                        {step.split(/(\[.*?\])/).map((part, index) => 
+                          part.startsWith('[') && part.endsWith(']') ? 
+                          <span key={index} className="font-black tracking-tight">{part}</span> : 
+                          part
+                        )}
                       </span>
                     </motion.div>
                   ))}
                   {loading && thoughtProcess.length > 0 && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 flex items-center space-x-2 text-cyan-500">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 flex items-center space-x-2 text-cyan-500">
                        <span className="w-2 h-4 bg-cyan-500 animate-pulse block" />
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </ScrollArea>
+              </div>
 
               {/* Resolution Panel */}
               <AnimatePresence>
                 {finalResolution && (
                   <motion.div 
-                    initial={{ opacity: 0, y: "100%" }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className={`p-6 border-t backdrop-blur-2xl relative z-20 ${
+                    className={`shrink-0 border-t backdrop-blur-2xl relative z-20 overflow-hidden ${
                       ticketStatus === 'AUTO_RESOLVED' 
                         ? 'bg-emerald-950/40 border-emerald-500/20' 
                         : 'bg-rose-950/40 border-rose-500/20'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        {ticketStatus === 'AUTO_RESOLVED' ? (
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          </div>
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
-                            <ShieldAlert className="w-4 h-4 text-rose-400" />
-                          </div>
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          {ticketStatus === 'AUTO_RESOLVED' ? (
+                            <div className="w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                            </div>
+                          )}
+                          <h3 className={`text-xs uppercase tracking-widest font-bold ${
+                            ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-400' : 'text-rose-400'
+                          }`}>Diagnostic Result</h3>
+                        </div>
+                        
+                        {confidenceScore !== null && (
+                           <div className="bg-black/40 px-2.5 py-1 rounded-lg border border-white/5 flex items-center space-x-2">
+                             <span className="text-[9px] uppercase font-bold text-slate-500 tracking-[0.15em]">Conf</span>
+                             <span className={`text-xs font-mono font-bold ${confidenceScore >= 0.8 ? 'text-emerald-400' : confidenceScore >= 0.5 ? 'text-amber-400' : 'text-rose-400'}`}>
+                               {(confidenceScore * 100).toFixed(1)}%
+                             </span>
+                           </div>
                         )}
-                        <h3 className={`text-sm uppercase tracking-widest font-bold ${
-                          ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-400' : 'text-rose-400'
-                        }`}>Diagnostic Result</h3>
                       </div>
                       
-                      {confidenceScore !== null && (
-                         <div className="bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 flex items-center space-x-2">
-                           <span className="text-[9px] uppercase font-bold text-slate-500 tracking-[0.2em]">Conf</span>
-                           <span className={`text-xs font-mono font-bold ${confidenceScore >= 0.8 ? 'text-emerald-400' : confidenceScore >= 0.5 ? 'text-amber-400' : 'text-rose-400'}`}>
-                             {(confidenceScore * 100).toFixed(1)}%
-                           </span>
-                         </div>
-                      )}
-                    </div>
-                    
-                    <div className={`text-sm leading-relaxed max-h-[150px] overflow-y-auto custom-scrollbar pr-2 font-mono ${
-                      ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-100/90' : 'text-rose-100/90'
-                    }`}>
-                      {/* Very simple markdown rendering (just splitting newlines) for the demo */}
-                      {finalResolution.split('\n').map((line, i) => (
-                        <p key={i} className="mb-2">{line}</p>
-                      ))}
+                      <div className={`text-[13px] leading-relaxed max-h-[220px] lg:max-h-[280px] overflow-y-auto custom-scrollbar pr-3 break-words ${
+                        ticketStatus === 'AUTO_RESOLVED' ? 'text-emerald-100/90' : 'text-rose-100/90'
+                      }`}>
+                        <div className="space-y-3 pb-2">
+                          {/* Advanced text splitting to handle newlines and common list formats */}
+                          {finalResolution.split(/\n|(?=\s*(?:\d+\.|\*|-)\s)/).map((line, i) => {
+                            const trimmed = line.trim();
+                            if (!trimmed) return null;
+                            
+                            // Detect formatting
+                            const isBold = trimmed.startsWith('**') || trimmed.startsWith('##');
+                            const isBullet = /^(?:\d+\.|\*|-)\s/.test(trimmed);
+                            
+                            return (
+                              <div key={i} className={`transition-all duration-300 ${
+                                isBold ? 'font-black text-white mt-5 mb-2 text-sm uppercase tracking-wider' : 
+                                isBullet ? 'pl-6 relative border-l-2 border-white/10 ml-1 py-1 bg-white/5 rounded-r-lg' : 'opacity-80'
+                              }`}>
+                                {isBullet && (
+                                  <span className="absolute left-0 top-3 w-3 h-[1px] bg-white/30" />
+                                )}
+                                {trimmed.replace(/\*\*/g, '').replace(/^##\s*/, '')}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -382,12 +448,14 @@ export default function SubmissionPortal() {
       </div>
       
       <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.3); border-radius: 10px; }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.5); }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.2); border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.4); }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        
+        .overflow-wrap-anywhere { overflow-wrap: anywhere; word-break: break-word; }
         
         @keyframes shimmer {
           100% { transform: translateX(100%); }

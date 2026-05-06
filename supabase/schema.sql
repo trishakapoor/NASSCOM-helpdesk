@@ -1,22 +1,26 @@
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Drop tables if they exist to allow clean runs
-DROP TABLE IF EXISTS historical_tickets;
-DROP TABLE IF EXISTS live_tickets;
-DROP TABLE IF EXISTS master_incidents;
+-- ═══════════════════════════════════════════════════════════════
+-- CORE TABLES
+-- ═══════════════════════════════════════════════════════════════
 
--- Table for RAG Context
-CREATE TABLE historical_tickets (
+-- Table for RAG Context (with Full-Text Search support)
+CREATE TABLE IF NOT EXISTS historical_tickets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   category text NOT NULL,
   sanitized_query text NOT NULL,
   resolution_steps text NOT NULL,
-  embedding vector(384) NOT NULL
+  embedding vector(384) NOT NULL,
+  sanitized_query_fts tsvector GENERATED ALWAYS AS (to_tsvector('english', sanitized_query)) STORED
 );
 
+-- GIN index for blazing fast full-text search
+CREATE INDEX IF NOT EXISTS historical_tickets_fts_idx 
+ON historical_tickets USING GIN (sanitized_query_fts);
+
 -- Table for Triage Dashboard
-CREATE TABLE live_tickets (
+CREATE TABLE IF NOT EXISTS live_tickets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz DEFAULT now(),
   status text NOT NULL CHECK (status IN ('AUTO_RESOLVED', 'NEEDS_HUMAN')),
@@ -30,7 +34,7 @@ CREATE TABLE live_tickets (
 );
 
 -- Table for Master Incidents (Agentic Layer)
-CREATE TABLE master_incidents (
+CREATE TABLE IF NOT EXISTS master_incidents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz DEFAULT now(),
   category text NOT NULL,
@@ -40,6 +44,72 @@ CREATE TABLE master_incidents (
   remediation_runbook text NOT NULL,
   related_ticket_count int NOT NULL
 );
+
+-- ═══════════════════════════════════════════════════════════════
+-- PROCEDURAL MEMORY: Agentic Skills Table
+-- Each row is a deterministic "Skill DAG" that an Agent can execute
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS agentic_skills (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category text NOT NULL UNIQUE,
+  applicability_logic text NOT NULL,
+  execution_steps text NOT NULL,
+  termination_criteria text NOT NULL
+);
+
+-- ═══════════════════════════════════════════════════════════════
+-- HYBRID SEARCH RPC: Reciprocal Rank Fusion (BM25 + pgvector)
+-- Combines lexical keyword matching with semantic vector similarity
+-- k=60 is the standard RRF constant from the Cormack et al. paper
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION hybrid_search_tickets(
+  query_text text,
+  query_embedding vector(384)
+)
+RETURNS TABLE (
+  id uuid,
+  category text,
+  sanitized_query text,
+  resolution_steps text,
+  rrf_score float
+)
+LANGUAGE sql
+AS $$
+  WITH full_text_ranked AS (
+    SELECT 
+      ht.id,
+      ROW_NUMBER() OVER (ORDER BY ts_rank_cd(ht.sanitized_query_fts, plainto_tsquery('english', query_text)) DESC) AS text_rank
+    FROM historical_tickets ht
+    WHERE ht.sanitized_query_fts @@ plainto_tsquery('english', query_text)
+    LIMIT 20
+  ),
+  semantic_ranked AS (
+    SELECT 
+      ht.id,
+      ht.category,
+      ht.sanitized_query,
+      ht.resolution_steps,
+      ROW_NUMBER() OVER (ORDER BY ht.embedding <=> query_embedding ASC) AS vector_rank
+    FROM historical_tickets ht
+    LIMIT 20
+  )
+  SELECT 
+    s.id,
+    s.category,
+    s.sanitized_query,
+    s.resolution_steps,
+    (COALESCE(1.0 / (60 + ft.text_rank), 0.0) + COALESCE(1.0 / (60 + s.vector_rank), 0.0)) AS rrf_score
+  FROM semantic_ranked s
+  LEFT JOIN full_text_ranked ft ON s.id = ft.id
+  ORDER BY rrf_score DESC
+  LIMIT 5;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════
+-- LEGACY FUNCTIONS (kept for backward compatibility)
+-- ═══════════════════════════════════════════════════════════════
 
 -- Vector Search Function
 CREATE OR REPLACE FUNCTION match_historical_tickets (
@@ -68,34 +138,6 @@ BEGIN
   WHERE 1 - (historical_tickets.embedding <=> query_embedding) > match_threshold
   ORDER BY historical_tickets.embedding <=> query_embedding
   LIMIT match_count;
-END;
-$$;
-
--- Function to find similar live tickets (for repeat detection)
-CREATE OR REPLACE FUNCTION count_similar_live_tickets (
-  target_category text,
-  target_text text,
-  hours_back int DEFAULT 72
-)
-RETURNS int
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  similar_count int;
-BEGIN
-  SELECT COUNT(*) INTO similar_count
-  FROM live_tickets
-  WHERE category = target_category
-    AND created_at > now() - (hours_back || ' hours')::interval
-    AND similarity(original_redacted_text, target_text) > 0.3;
-  RETURN COALESCE(similar_count, 0);
-EXCEPTION WHEN OTHERS THEN
-  -- If pg_trgm not available, fallback to exact category count
-  SELECT COUNT(*) INTO similar_count
-  FROM live_tickets
-  WHERE category = target_category
-    AND created_at > now() - (hours_back || ' hours')::interval;
-  RETURN COALESCE(similar_count, 0);
 END;
 $$;
 
