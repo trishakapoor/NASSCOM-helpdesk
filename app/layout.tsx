@@ -9,8 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Captain Obvious - IT Helpdesk",
-  description: "Agentic Zero-Trust IT Resolution System",
+  title: "Captain Obvious: IT Helpdesk AI — Intelligent Triage & Resolution Agent",
+  description: "AI-powered, privacy-first Enterprise IT Helpdesk Council with RAG-based resolution, PII redaction, confidence scoring, and agentic workflows. Built for NASSCOM Hackathon 2026.",
+  keywords: ["AI helpdesk", "ticket routing", "RAG", "PII redaction", "enterprise knowledge assistant", "agentic AI", "ONNX", "Council"],
 };
 
 export default function RootLayout({
